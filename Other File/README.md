@@ -1,13 +1,13 @@
 # rpe 工具箱（模块化版）
 
-由单文件 `RPET.py`（约 1600 行）按“需求九：拆分文件并构建新目录”重构而来。
+由单文件 `RPET.py`（约 1600 行）按“需求九：拆分文件并构建新目录”重构而来；需求十将包名改为 `rpe_toolbox`。
 
 ## 目录结构
 
 ```
 RPET new/
 ├── RPET.py                     # 启动入口（双击 / python RPET.py）
-├── rpet_toolbox/               # 源码包（拆分后的代码）
+├── rpe_toolbox/                # 源码包（拆分后的代码）
 │   ├── launcher.py             # pythonw 无窗口重启
 │   ├── imglib.py               # Pillow 可选导入
 │   ├── easing.py               # 时间数组 / 缓动曲线数学
@@ -23,11 +23,11 @@ RPET new/
 │   ├── 大段注释整理.md           # 从代码中移出的大段推导/说明注释
 │   └── 染色矫正.py              # 染色矫正算法说明
 ├── docs/
-│   └── 使用python和tkinter制作以下音游相关功能.txt   # 需求文档副本
+│   └── ai提示词历史.txt         # 需求/提示词历史（原“使用python和tkinter制作以下音游相关功能.txt”更名而来）
 └── tests/
     ├── _test_rpet.py           # 功能测试（20 项）
     ├── _test_ui.py             # UI 切换测试（12 项）
-    └── _test_req9.py           # 需求九验证（BPMList / 音符宽度 / 上下翻转）
+    └── _test_req9.py           # 需求九/十验证（BPMList / 音符宽度 / 上下翻转 / alpha 透明度）
 ```
 
 ## 运行与测试
@@ -36,6 +36,7 @@ RPET new/
 - 功能测试：`python tests/_test_rpet.py`
 - UI 测试：`python tests/_test_ui.py`
 - 需求九验证：`python tests/_test_req9.py`
+- 需求十要点：包名 `rpe_toolbox`；图片透明度写入音符 `alpha`（半透明蓝 → alpha 127）；自动调整音符宽度 `size = 列间距/175`
 
 ## 需求九要点
 

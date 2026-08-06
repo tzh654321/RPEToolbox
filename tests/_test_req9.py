@@ -9,8 +9,8 @@ sys.path.insert(0, BASE)
 
 import tkinter as tk
 
-from rpet_toolbox.app import RPEToolbox
-from rpet_toolbox.imglib import Image
+from rpe_toolbox.app import RPEToolbox
+from rpe_toolbox.imglib import Image
 
 root = tk.Tk()
 root.withdraw()
@@ -93,8 +93,30 @@ app.flip_vertical_var.set(False)
 # ---- 测试D: 多透明度测试图片 ----
 alpha_path = os.path.join(BASE, "assets", "images", "_test_img_alpha.png")
 with Image.open(alpha_path) as alpha_img:
-    alphas = sorted({p[3] for p in alpha_img.convert("RGBA").getdata()})
+    rgba = alpha_img.convert("RGBA")
+    getter = getattr(rgba, "get_flattened_data", None)
+    data = getter() if getter else rgba.getdata()
+    alphas = sorted({p[3] for p in data})
 check("D 透明度包含 0/127/255", {0, 127, 255}.issubset(set(alphas)), str(alphas))
+
+# ---- 测试E: 图片透明度写入音符 alpha（需求十） ----
+app.image_path_var.set(alpha_path)
+app.use_original_size_var.set(True)
+app.auto_adjust_width_var.set(True)
+app.legacy_tint_var.set(False)
+app.color_mode_var.set("染色")
+oute = app.func_image_to_notes({"imagePath": alpha_path})
+notes_by_tint = {tuple(n["tint"]): n for n in oute["notes"]}
+check("E 半透明蓝 alpha=127", notes_by_tint.get((0, 0, 255), {}).get("alpha") == 127, str(notes_by_tint.get((0, 0, 255))))
+check("E 不透明红 alpha=255", notes_by_tint.get((255, 0, 0), {}).get("alpha") == 255, str(notes_by_tint.get((255, 0, 0))))
+check("E 全透明像素被跳过", (0, 255, 0) not in notes_by_tint, str([k for k in notes_by_tint]))
+alphas_e = sorted({n["alpha"] for n in oute["notes"]})
+check("E 所有非零透明度保留", alphas_e == [32, 64, 127, 191, 255], str(alphas_e))
+app.color_mode_var.set("矫正颜色染色")
+oute2 = app.func_image_to_notes({"imagePath": alpha_path})
+alphas_e2 = sorted({n["alpha"] for n in oute2["notes"]})
+check("E 矫正染色同样保留透明度", alphas_e2 == [32, 64, 127, 191, 255], str(alphas_e2))
+app.color_mode_var.set("染色")
 
 print("=" * 50)
 print("TOTAL: %d PASS, %d FAIL" % (ok, fail))

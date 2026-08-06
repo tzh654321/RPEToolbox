@@ -3,14 +3,14 @@
 import os
 import sys
 
-# 保证从任意目录启动都能找到 rpet_toolbox 包
+# 保证从任意目录启动都能找到 rpe_toolbox 包
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 
 
 def main():
     import tkinter as tk
 
-    from rpet_toolbox.app import RPEToolbox
+    from rpe_toolbox.app import RPEToolbox
 
     root = tk.Tk()
     app = RPEToolbox(root)
@@ -18,8 +18,24 @@ def main():
 
 
 if __name__ == "__main__":
-    from rpet_toolbox.launcher import relaunch_as_pythonw
+    from rpe_toolbox.launcher import relaunch_as_pythonw
 
     # Windows 下以 pythonw.exe 无窗口方式重启自身
-    relaunch_as_pythonw()
-    main()
+    try:
+        relaunch_as_pythonw(script_path=os.path.abspath(__file__))
+        main()
+    except Exception:
+        # pythonw 无控制台，出错时写入日志便于排查（位于 Other File/启动错误.log）
+        import traceback
+
+        log_path = os.path.join(
+            os.path.dirname(os.path.abspath(__file__)),
+            "Other File",
+            "启动错误.log",
+        )
+        try:
+            with open(log_path, "w", encoding="utf-8") as f:
+                traceback.print_exc(file=f)
+        except Exception:
+            pass
+        raise

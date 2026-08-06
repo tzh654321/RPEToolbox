@@ -9,8 +9,8 @@ sys.path.insert(0, BASE)
 
 import tkinter as tk
 
-from rpet_toolbox.app import RPEToolbox
-from rpet_toolbox.imglib import Image
+from rpe_toolbox.app import RPEToolbox
+from rpe_toolbox.imglib import Image
 
 root = tk.Tk()
 root.withdraw()

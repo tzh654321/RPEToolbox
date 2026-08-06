@@ -17,7 +17,7 @@ class RPEToolbox(FunctionMixin):
     def __init__(self, root):
         self.root = root
         self.root.title("rpe工具箱")
-        self.root.geometry("1000x760")
+        self.root.geometry("680x760")
         # 设置窗口图标（PNG 格式，使用 PhotoImage）
         try:
             icon_path = resources.find_icon()
@@ -49,7 +49,7 @@ class RPEToolbox(FunctionMixin):
             ("Y轴位移", 2),
             ("旋转", 3),
             ("透明度", 4),
-            ("速度", 5),
+            ("流速", 5),
             ("X轴缩放", 6),
             ("Y轴缩放", 7),
         ]
@@ -140,12 +140,12 @@ class RPEToolbox(FunctionMixin):
 
         self.functions = {
             "1. hold/事件首尾相接": ("hold_notes_connect", "将 Hold 音符或事件的 endTime 连接到下一个不同的 startTime，可区分轨道"),
-            "2. 非线性切割": ("nonlinear_split", "按指定密度切分事件，并保留缓动左右端点和贝塞尔相关信息"),
-            "3. 极坐标转换": ("polar_conversion", "将输入的 X/Y/旋转事件组合成极坐标并转换为绝对 X/Y 位置"),
-            "4. 事件类型转换": ("event_type_convert", "修改事件 type ，支持常规属性和 X/Y 缩放"),
+            "2. 非线性切割": ("nonlinear_split", "按指定密度切分事件，并能自动处理缓动左右端点与贝塞尔控制点"),
+            "3. 极坐标转换": ("polar_conversion", "将输入的 (X,Y) 到原点距离作为 r，旋转角度作为 θ，组成极坐标并转换为笛卡尔坐标"),
+            "4. 事件类型转换": ("event_type_convert", "修改事件种类 ，支持常规属性和 X/Y 缩放"),
             "5. 图片转音符画": ("image_to_notes", "使用图片生成音符画，支持 JPG/PNG 导入"),
-            "6. 时间间隔转y偏移": ("time_interval_to_yoffset", "把 note 的时间间隔按流速变成 yOffset"),
-            "7. 倒序/拉伸": ("reverse_data", "将 notes 或 events 按比例拉伸/压缩时间，负比例表示倒序"),
+            "6. 时间间隔转y偏移": ("time_interval_to_yoffset", "把音符按时间间隔和流速处理成 yOffset"),
+            "7. 倒序/拉伸": ("reverse_data", "将音符或事件按比例拉伸/压缩时间，负比例表示倒序"),
             "8. MIDI BPM 提取": ("midi_bpm_extract", "从 MIDI 文件中提取 BPM 变化列表")
         }
 
@@ -216,6 +216,9 @@ class RPEToolbox(FunctionMixin):
         self.legacy_tint_var = tk.BooleanVar(value=False)
         self.legacy_tint_check = tk.Checkbutton(row_type_color, text="旧版染色标签", variable=self.legacy_tint_var)
         self.legacy_tint_check.pack(side=tk.LEFT, padx=5)
+        # 需求十二：颜色处理为“不透明度替代亮度”时隐藏旧版染色标签
+        self.color_mode_var.trace_add("write", lambda *_: self._toggle_legacy_tint())
+        self._toggle_legacy_tint()
 
         # 第三行：音符间隔（分音） 左右翻转 上下翻转 旋转度数
         row_opt3 = tk.Frame(self.frame_image_settings)
@@ -236,7 +239,7 @@ class RPEToolbox(FunctionMixin):
         row_size = tk.Frame(self.frame_image_settings)
         row_size.pack(fill=tk.X, pady=2)
         self.use_original_size_var = tk.BooleanVar(value=False)
-        self.use_original_size_check = tk.Checkbutton(row_size, text="是否使用原图片大小", variable=self.use_original_size_var)
+        self.use_original_size_check = tk.Checkbutton(row_size, text="使用原图片大小", variable=self.use_original_size_var)
         self.use_original_size_check.pack(side=tk.LEFT, padx=5)
         self.use_original_size_var.trace_add("write", lambda *_: self._toggle_image_size_fields())
 
@@ -257,7 +260,7 @@ class RPEToolbox(FunctionMixin):
         row_width = tk.Frame(self.frame_image_settings)
         row_width.pack(fill=tk.X, pady=2)
         self.auto_adjust_width_var = tk.BooleanVar(value=True)
-        self.auto_adjust_width_check = tk.Checkbutton(row_width, text="是否自动调整音符宽度", variable=self.auto_adjust_width_var)
+        self.auto_adjust_width_check = tk.Checkbutton(row_width, text="自动调整音符宽度", variable=self.auto_adjust_width_var)
         self.auto_adjust_width_check.pack(side=tk.LEFT, padx=5)
         self.auto_adjust_width_var.trace_add("write", lambda *_: self._toggle_image_width_fields())
 
@@ -297,13 +300,13 @@ class RPEToolbox(FunctionMixin):
         self.frame_btn = tk.Frame(self.root, pady=5)
         self.frame_btn.pack(fill=tk.X, padx=10)
 
-        self.btn_convert = tk.Button(self.frame_btn, text="转换", command=lambda: self._trigger_with_sound("convert"), bg="#4CAF50", fg="white")
+        self.btn_convert = tk.Button(self.frame_btn, text="转换", command=lambda: self._trigger_with_sound("convert"), bg="#8EC990", fg="#0C4E1A")
         self.btn_convert.pack(side=tk.LEFT, padx=5)
 
-        self.btn_copy = tk.Button(self.frame_btn, text="复制结果", command=lambda: self._trigger_with_sound("copy"))
+        self.btn_copy = tk.Button(self.frame_btn, text="复制结果", command=lambda: self._trigger_with_sound("copy"), bg="#E6E7AB", fg="#5A550E")
         self.btn_copy.pack(side=tk.LEFT, padx=5)
 
-        self.btn_clear = tk.Button(self.frame_btn, text="清空输入/输出", command=lambda: self._trigger_with_sound("clear"), bg="#f44336", fg="white")
+        self.btn_clear = tk.Button(self.frame_btn, text="清空输入/输出", command=lambda: self._trigger_with_sound("clear"), bg="#e6766e", fg="#EEDFE5")
         self.btn_clear.pack(side=tk.LEFT, padx=5)
 
         # 5. 文本输出区
@@ -312,21 +315,73 @@ class RPEToolbox(FunctionMixin):
         self.text_output.pack(fill=tk.BOTH, expand=True, padx=10, pady=5)
 
     def _create_event_convert_rows(self):
-        for label, _ in self.event_type_options:
-            row = tk.Frame(self.frame_event_convert)
-            row.pack(fill=tk.X, padx=5, pady=2)
-            tk.Label(row, text=label).pack(side=tk.LEFT, padx=5)
+        # 需求十一：两列布局，每行“输入选择框 → 文字”，速度更名为流速
+        self.frame_event_convert_left = tk.Frame(self.frame_event_convert)
+        self.frame_event_convert_left.pack(side=tk.LEFT, fill=tk.X, padx=(5, 25), pady=2)
+        self.frame_event_convert_right = tk.Frame(self.frame_event_convert)
+        self.frame_event_convert_right.pack(side=tk.LEFT, fill=tk.X, padx=(0, 5), pady=2)
 
-            source_var = tk.StringVar(value=label)
-            target_var = tk.StringVar(value=label)
+        self.event_source_vars = []
+        self.event_target_vars = []
+
+        type_names = [name for name, _ in self.event_type_options]
+        # 左列：X轴位移 Y轴位移 旋转 透明度 流速；右列：X轴缩放 Y轴缩放 定轨hold 曲线drag 音符间隔
+        standard_names = ["X轴位移", "Y轴位移", "旋转", "透明度", "流速", "X轴缩放", "Y轴缩放"]
+        for idx, name in enumerate(standard_names):
+            parent = self.frame_event_convert_left if idx < 5 else self.frame_event_convert_right
+            row = idx if idx < 5 else idx - 5
+            source_var = tk.StringVar(value=name)
+            target_var = tk.StringVar(value=name)
             self.event_source_vars.append(source_var)
             self.event_target_vars.append(target_var)
+            ttk.Combobox(parent, textvariable=source_var, values=type_names, state="readonly", width=14).grid(
+                row=row, column=0, sticky="w", padx=2, pady=2)
+            tk.Label(parent, text="→", width=3, anchor="center").grid(
+                row=row, column=1, sticky="w", padx=1, pady=2)
+            tk.Label(parent, text=name, width=11, anchor="w").grid(
+                row=row, column=2, sticky="w", padx=2, pady=2)
 
-            source_box = ttk.Combobox(row, textvariable=source_var, values=[name for name, _ in self.event_type_options], state="readonly", width=12)
-            source_box.pack(side=tk.LEFT, padx=5)
-            tk.Label(row, text="→").pack(side=tk.LEFT, padx=3)
-            target_box = ttk.Combobox(row, textvariable=target_var, values=[name for name, _ in self.event_type_options], state="readonly", width=12)
-            target_box.pack(side=tk.LEFT, padx=5)
+        # 定轨hold：无/5k/7k，默认无
+        self.hold_mode_var = tk.StringVar(value="无")
+        ttk.Combobox(self.frame_event_convert_right, textvariable=self.hold_mode_var,
+                     values=["无", "5k(常规事件)", "7k(包括缩放)"], state="readonly", width=14).grid(
+            row=2, column=0, sticky="w", padx=2, pady=2)
+        tk.Label(self.frame_event_convert_right, text="→", width=3, anchor="center").grid(
+            row=2, column=1, sticky="w", padx=1, pady=2)
+        tk.Label(self.frame_event_convert_right, text="定轨hold", width=11, anchor="w").grid(
+            row=2, column=2, sticky="w", padx=2, pady=2)
+
+        # 曲线drag：无/X轴位移与缩放/y轴位移与缩放，默认无
+        self.drag_mode_var = tk.StringVar(value="无")
+        ttk.Combobox(self.frame_event_convert_right, textvariable=self.drag_mode_var,
+                     values=["无", "X轴位移与缩放", "y轴位移与缩放"], state="readonly", width=14).grid(
+            row=3, column=0, sticky="w", padx=2, pady=2)
+        tk.Label(self.frame_event_convert_right, text="→", width=3, anchor="center").grid(
+            row=3, column=1, sticky="w", padx=1, pady=2)
+        tk.Label(self.frame_event_convert_right, text="曲线drag", width=11, anchor="w").grid(
+            row=3, column=2, sticky="w", padx=2, pady=2)
+
+        # 音符间隔（输入框，仅曲线drag不为“无”时出现）
+        self.frame_drag_interval = tk.Frame(self.frame_event_convert_right)
+        self.frame_drag_interval.grid(row=4, column=0, columnspan=3, sticky="w", padx=2, pady=2)
+        self.drag_interval_var = tk.StringVar(value="16")
+        tk.Entry(self.frame_drag_interval, textvariable=self.drag_interval_var, width=8).pack(side=tk.LEFT, padx=2)
+        tk.Label(self.frame_drag_interval, text="→", width=3, anchor="center").pack(side=tk.LEFT, padx=1)
+        tk.Label(self.frame_drag_interval, text="音符间隔（分音）", width=11, anchor="w").pack(side=tk.LEFT, padx=2)
+        self.frame_drag_interval.grid_remove()
+        self.drag_mode_var.trace_add("write", lambda *_: self._toggle_drag_interval())
+
+    def _toggle_drag_interval(self):
+        if self.drag_mode_var.get() != "无":
+            self.frame_drag_interval.grid()
+        else:
+            self.frame_drag_interval.grid_remove()
+
+    def _toggle_legacy_tint(self):
+        if self.color_mode_var.get() == "不透明度替代亮度":
+            self.legacy_tint_check.pack_forget()
+        else:
+            self.legacy_tint_check.pack(side=tk.LEFT, padx=5)
 
     def _trigger_with_sound(self, kind):
         if kind == "convert":

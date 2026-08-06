@@ -8,7 +8,7 @@ sys.path.insert(0, BASE)
 
 import tkinter as tk
 
-from rpet_toolbox.app import RPEToolbox
+from rpe_toolbox.app import RPEToolbox
 
 root = tk.Tk()
 root.withdraw()
@@ -59,6 +59,15 @@ check("UI MIDI 模式隐藏输入框", app.input_frame.winfo_manager() == "", "m
 app.current_function.set(funcs["hold_notes_connect"])
 app.on_function_change()
 check("UI hold 模式显示输入框", app.input_frame.winfo_manager() == "pack", "manager=%s" % app.input_frame.winfo_manager())
+
+# 需求十一：曲线drag 选择非“无”时显示音符间隔输入行
+app.current_function.set(funcs["event_type_convert"])
+app.on_function_change()
+app.drag_mode_var.set("X轴位移与缩放")
+check("UI 曲线drag显示音符间隔行", app.frame_drag_interval.winfo_manager() != "", "manager=%s" % app.frame_drag_interval.winfo_manager())
+app.drag_mode_var.set("无")
+check("UI 曲线drag为无时隐藏音符间隔行", app.frame_drag_interval.winfo_manager() == "", "manager=%s" % app.frame_drag_interval.winfo_manager())
+check("UI 定轨hold默认无", app.hold_mode_var.get() == "无", app.hold_mode_var.get())
 
 # 验证 process_data 在图片模式下不报错（无输入框内容）
 app.current_function.set(funcs["image_to_notes"])

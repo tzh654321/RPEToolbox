@@ -1907,7 +1907,547 @@ bpm列表格式为
 十十十十十十十十十十十十十十十十十十十十十十十十十十十十十十十十十十十十十十十十十十十十十十十
 
 现在的工作区根目录为C:\Users\ZETTAKIT\Desktop\temp\RPET new
-我进行过的操作
-   测试用图片移动至C:\Users\ZETTAKIT\Desktop\temp\RPET new\tests\images
-   “使用python和tkinter制作以下音游相关功能.txt”更名为“ai提示词历史.txt”
 C:\Users\ZETTAKIT\Desktop\temp\RPET new\rpet_toolbox需要更名为rpe_toolbox
+我进行过的操作：“使用python和tkinter制作以下音游相关功能.txt”更名为“ai提示词历史.txt”
+图片转音符画中除了0透明度外的透明度都没有生效，透明度应存放在"alpha"中
+例如半透明蓝色
+{
+   "notes" : [
+      {
+         "above" : 1,
+         "alpha" : 127,
+         "endTime" : [ 44, 0, 1 ],
+         "isFake" : 0,
+         "judgeArea" : 1.0,
+         "line" : 0,
+         "positionX" : 168.75,
+         "size" : 1.0,
+         "speed" : 1.0,
+         "startTime" : [ 44, 0, 1 ],
+         "tint" : [ 0, 0, 255 ],
+         "type" : 4,
+         "visibleTime" : 999999.0,
+         "yOffset" : 0.0
+      }
+   ]
+}
+在调整音符宽度模式下，没有调整音符宽度
+
+
+
+十一 十一 十一 十一 十一 十一 十一 十一 十一 十一 十一 十一 十一 十一 十一 十一 十一 十一 
+
+图片转音符画中音符间隔设为16分音，图片高度为4时，实际输出的音符间隔为1/3拍（12分音），与设定不符
+非线性切割中对于三次贝塞尔曲线采用了复制控制点坐标的方法，需要改成使用数学公式推导出每一小段的控制点，使最终效果与输入一致
+事件类型转换相关
+   每一行的“文字+输入选择框→输出选择框”改成“输入选择框→文字”
+   速度 更名为 流速
+   分为两列，左列包含:X轴位移 Y轴位移 旋转 透明度 流速 右列包含:X轴缩放 Y轴缩放 定轨hold 曲线drag 音符间隔（输入框，曲线drag不为“无”时才会出现）
+   每一列需要对齐ui
+   定轨hold的输入选择框只有 无/5k/7k ，默认无
+   曲线drag的输入选择框只有 无/X轴位移与缩放/y轴位移与缩放 ，默认无
+   “定轨hold”能把事件当作五/七列hold
+      5k下的x坐标：X轴位移-540 Y轴位移-270 旋转0 透明度270 流速540
+      7k下的x坐标：X轴位移-578.57 Y轴位移-385.71 旋转-192.86 透明度0 流速192.86 X轴缩放385.71 Y轴缩放578.57
+      例如（5k）
+{
+   "events" : [
+      {
+         "bezier" : 0,
+         "bezierPoints" : [ 0.0, 0.0, 0.0, 0.0 ],
+         "easingLeft" : 0.0,
+         "easingRight" : 1.0,
+         "easingType" : 1,
+         "end" : 0.0,
+         "endTime" : [ 48, 1, 3 ],
+         "layer" : 0,
+         "line" : 0,
+         "linkgroup" : 0,
+         "start" : 0.0,
+         "startTime" : [ 48, 0, 1 ],
+         "type" : 1
+      },
+      {
+         "bezier" : 0,
+         "bezierPoints" : [ 0.0, 0.0, 0.0, 0.0 ],
+         "easingLeft" : 0.0,
+         "easingRight" : 1.0,
+         "easingType" : 1,
+         "end" : -450.0,
+         "endTime" : [ 48, 2, 3 ],
+         "layer" : 0,
+         "line" : 0,
+         "linkgroup" : 0,
+         "start" : -450.0,
+         "startTime" : [ 48, 0, 1 ],
+         "type" : 2
+      },
+      {
+         "bezier" : 0,
+         "bezierPoints" : [ 0.0, 0.0, 0.0, 0.0 ],
+         "easingLeft" : 0.0,
+         "easingRight" : 1.0,
+         "easingType" : 1,
+         "end" : 0.0,
+         "endTime" : [ 49, 0, 1 ],
+         "layer" : 0,
+         "line" : 0,
+         "linkgroup" : 0,
+         "start" : 0.0,
+         "startTime" : [ 48, 0, 1 ],
+         "type" : 3
+      },
+      {
+         "bezier" : 0,
+         "bezierPoints" : [ 0.0, 0.0, 0.0, 0.0 ],
+         "easingLeft" : 0.0,
+         "easingRight" : 1.0,
+         "easingType" : 1,
+         "end" : 200.0,
+         "endTime" : [ 49, 1, 3 ],
+         "layer" : 0,
+         "line" : 0,
+         "linkgroup" : 0,
+         "start" : 200.0,
+         "startTime" : [ 48, 0, 1 ],
+         "type" : 4
+      },
+      {
+         "bezier" : 0,
+         "bezierPoints" : [ 0.0, 0.0, 0.0, 0.0 ],
+         "easingLeft" : 0.0,
+         "easingRight" : 1.0,
+         "easingType" : 1,
+         "end" : 1.0,
+         "endTime" : [ 49, 2, 3 ],
+         "layer" : 0,
+         "line" : 0,
+         "linkgroup" : 0,
+         "start" : 1.0,
+         "startTime" : [ 48, 0, 1 ],
+         "type" : 5
+      }
+   ]
+}
+      输出
+{
+   "notes" : [
+      {
+         "above" : 1,
+         "alpha" : 255,
+         "endTime" : [ 49, 0, 1 ],
+         "isFake" : 0,
+         "judgeArea" : 1.0,
+         "line" : 0,
+         "positionX" : 0.0,
+         "size" : 1.0,
+         "speed" : 1.0,
+         "startTime" : [ 48, 0, 1 ],
+         "tint" : [ 255, 255, 255 ],
+         "type" : 2,
+         "visibleTime" : 999999.0,
+         "yOffset" : 0.0
+      },
+      {
+         "above" : 1,
+         "alpha" : 255,
+         "endTime" : [ 48, 2, 3 ],
+         "isFake" : 0,
+         "judgeArea" : 1.0,
+         "line" : 0,
+         "positionX" : -270.0,
+         "size" : 1.0,
+         "speed" : 1.0,
+         "startTime" : [ 48, 0, 1 ],
+         "tint" : [ 255, 255, 255 ],
+         "type" : 2,
+         "visibleTime" : 999999.0,
+         "yOffset" : 0.0
+      },
+      {
+         "above" : 1,
+         "alpha" : 255,
+         "endTime" : [ 48, 1, 3 ],
+         "isFake" : 0,
+         "judgeArea" : 1.0,
+         "line" : 0,
+         "positionX" : -540.0,
+         "size" : 1.0,
+         "speed" : 1.0,
+         "startTime" : [ 48, 0, 1 ],
+         "tint" : [ 255, 255, 255 ],
+         "type" : 2,
+         "visibleTime" : 999999.0,
+         "yOffset" : 0.0
+      },
+      {
+         "above" : 1,
+         "alpha" : 255,
+         "endTime" : [ 49, 1, 3 ],
+         "isFake" : 0,
+         "judgeArea" : 1.0,
+         "line" : 0,
+         "positionX" : 270.0,
+         "size" : 1.0,
+         "speed" : 1.0,
+         "startTime" : [ 48, 0, 1 ],
+         "tint" : [ 255, 255, 255 ],
+         "type" : 2,
+         "visibleTime" : 999999.0,
+         "yOffset" : 0.0
+      },
+      {
+         "above" : 1,
+         "alpha" : 255,
+         "endTime" : [ 49, 2, 3 ],
+         "isFake" : 0,
+         "judgeArea" : 1.0,
+         "line" : 0,
+         "positionX" : 540.0,
+         "size" : 1.0,
+         "speed" : 1.0,
+         "startTime" : [ 48, 0, 1 ],
+         "tint" : [ 255, 255, 255 ],
+         "type" : 2,
+         "visibleTime" : 999999.0,
+         "yOffset" : 0.0
+      }
+   ]
+}
+   “曲线drag”能把位移与缩放按照音符间隔转换成一系列drag
+      例如（16分，x轴）
+{
+   "events" : [
+      {
+         "bezier" : 0,
+         "bezierPoints" : [ 0.0, 0.0, 0.0, 0.0 ],
+         "easingLeft" : 0.0,
+         "easingRight" : 1.0,
+         "easingType" : 4,
+         "end" : 400.0,
+         "endTime" : [ 54, 0, 1 ],
+         "layer" : 0,
+         "line" : 0,
+         "linkgroup" : 0,
+         "start" : -400.0,
+         "startTime" : [ 53, 0, 1 ],
+         "type" : 1
+      },
+      {
+         "bezier" : 0,
+         "bezierPoints" : [ 0.0, 0.0, 0.0, 0.0 ],
+         "easingLeft" : 0.0,
+         "easingRight" : 1.0,
+         "easingType" : 3,
+         "end" : 0.0,
+         "endTime" : [ 54, 1, 2 ],
+         "layer" : 0,
+         "line" : 0,
+         "linkgroup" : 0,
+         "start" : 400.0,
+         "startTime" : [ 54, 0, 1 ],
+         "type" : 1
+      },
+      {
+         "bezier" : 0,
+         "bezierPoints" : [ 0.0, 0.0, 0.0, 0.0 ],
+         "easingLeft" : 0.0,
+         "easingRight" : 1.0,
+         "easingType" : 1,
+         "end" : 2.0,
+         "endTime" : [ 54, 1, 2 ],
+         "layer" : 4,
+         "line" : 0,
+         "linkgroup" : 0,
+         "start" : 2.0,
+         "startTime" : [ 54, 0, 1 ],
+         "type" : 6
+      }
+   ]
+}
+      输出
+{
+   "notes" : [
+      {
+         "above" : 1,
+         "alpha" : 255,
+         "endTime" : [ 53, 0, 1 ],
+         "isFake" : 0,
+         "judgeArea" : 1.0,
+         "line" : 0,
+         "positionX" : -400.0,
+         "size" : 1.0,
+         "speed" : 1.0,
+         "startTime" : [ 53, 0, 1 ],
+         "tint" : [ 255, 255, 255 ],
+         "type" : 4,
+         "visibleTime" : 999999.0,
+         "yOffset" : 0.0
+      },
+      {
+         "above" : 1,
+         "alpha" : 255,
+         "endTime" : [ 53, 1, 4 ],
+         "isFake" : 0,
+         "judgeArea" : 1.0,
+         "line" : 0,
+         "positionX" : -93.853254107928478,
+         "size" : 1.0,
+         "speed" : 1.0,
+         "startTime" : [ 53, 1, 4 ],
+         "tint" : [ 255, 255, 255 ],
+         "type" : 4,
+         "visibleTime" : 999999.0,
+         "yOffset" : 0.0
+      },
+      {
+         "above" : 1,
+         "alpha" : 255,
+         "endTime" : [ 53, 1, 2 ],
+         "isFake" : 0,
+         "judgeArea" : 1.0,
+         "line" : 0,
+         "positionX" : 165.68542494923747,
+         "size" : 1.0,
+         "speed" : 1.0,
+         "startTime" : [ 53, 1, 2 ],
+         "tint" : [ 255, 255, 255 ],
+         "type" : 4,
+         "visibleTime" : 999999.0,
+         "yOffset" : 0.0
+      },
+      {
+         "above" : 1,
+         "alpha" : 255,
+         "endTime" : [ 53, 3, 4 ],
+         "isFake" : 0,
+         "judgeArea" : 1.0,
+         "line" : 0,
+         "positionX" : 339.10362600902909,
+         "size" : 1.0,
+         "speed" : 1.0,
+         "startTime" : [ 53, 3, 4 ],
+         "tint" : [ 255, 255, 255 ],
+         "type" : 4,
+         "visibleTime" : 999999.0,
+         "yOffset" : 0.0
+      },
+      {
+         "above" : 1,
+         "alpha" : 255,
+         "endTime" : [ 54, 0, 1 ],
+         "isFake" : 0,
+         "judgeArea" : 2.0,
+         "line" : 0,
+         "positionX" : 400.0,
+         "size" : 2.0,
+         "speed" : 1.0,
+         "startTime" : [ 54, 0, 1 ],
+         "tint" : [ 255, 255, 255 ],
+         "type" : 4,
+         "visibleTime" : 999999.0,
+         "yOffset" : 0.0
+      },
+      {
+         "above" : 1,
+         "alpha" : 255,
+         "endTime" : [ 54, 1, 4 ],
+         "isFake" : 0,
+         "judgeArea" : 2.0,
+         "line" : 0,
+         "positionX" : 282.84271247461925,
+         "size" : 2.0,
+         "speed" : 1.0,
+         "startTime" : [ 54, 1, 4 ],
+         "tint" : [ 255, 255, 255 ],
+         "type" : 4,
+         "visibleTime" : 999999.0,
+         "yOffset" : 0.0
+      },
+      {
+         "above" : 1,
+         "alpha" : 255,
+         "endTime" : [ 54, 1, 2 ],
+         "isFake" : 0,
+         "judgeArea" : 2.0,
+         "line" : 0,
+         "positionX" : 0.0,
+         "size" : 2.0,
+         "speed" : 1.0,
+         "startTime" : [ 54, 1, 2 ],
+         "tint" : [ 255, 255, 255 ],
+         "type" : 4,
+         "visibleTime" : 999999.0,
+         "yOffset" : 0.0
+      }
+   ]
+}
+
+
+十二 十二 十二 十二 十二 十二 十二 十二 十二 十二 十二 十二 十二 十二 十二 十二 十二 十二 十二 
+
+示例不自洽是我的失误，以文档为准
+非线性切割：对于第57拍曲线，此算法给出的是第58拍，但实际效果是59拍更接近（第59拍是我眼估的），需要优化算法
+{
+   "events" : [
+      {
+         "bezier" : 1,
+         "bezierPoints" : [ 0.33000000000000002, 1.45, 0.22, -0.32000000000000001 ],
+         "easingLeft" : 0.0,
+         "easingRight" : 1.0,
+         "easingType" : 1,
+         "end" : 450.0,
+         "endTime" : [ 58, 0, 1 ],
+         "layer" : 0,
+         "line" : 0,
+         "linkgroup" : 0,
+         "start" : -450.0,
+         "startTime" : [ 57, 0, 1 ],
+         "type" : 2
+      },
+      {
+         "bezier" : 1,
+         "bezierPoints" : [
+            0.44407099999999999,
+            0.62248499999999996,
+            0.74011800000000005,
+            0.89938300000000004
+         ],
+         "easingLeft" : 0.0,
+         "easingRight" : 0.25,
+         "easingType" : 1,
+         "end" : 96.918542857357693,
+         "endTime" : [ 58, 1, 4 ],
+         "layer" : 0,
+         "line" : 0,
+         "linkgroup" : 0,
+         "start" : -450.0,
+         "startTime" : [ 58, 0, 1 ],
+         "type" : 2
+      },
+      {
+         "bezier" : 1,
+         "bezierPoints" : [ 0.331901, -1.744186, 0.61761500000000003, -0.432558 ],
+         "easingLeft" : 0.25,
+         "easingRight" : 0.5,
+         "easingType" : 1,
+         "end" : -21.84761217631808,
+         "endTime" : [ 58, 1, 2 ],
+         "layer" : 0,
+         "line" : 0,
+         "linkgroup" : 0,
+         "start" : 96.918542857357693,
+         "startTime" : [ 58, 1, 4 ],
+         "type" : 2
+      },
+      {
+         "bezier" : 1,
+         "bezierPoints" : [ 0.242012, 0.83018899999999995, 0.545207, 1.7304580000000001 ],
+         "easingLeft" : 0.5,
+         "easingRight" : 0.75,
+         "easingType" : 1,
+         "end" : 127.18044583722065,
+         "endTime" : [ 58, 3, 4 ],
+         "layer" : 0,
+         "line" : 0,
+         "linkgroup" : 0,
+         "start" : -21.84761217631808,
+         "startTime" : [ 58, 1, 2 ],
+         "type" : 2
+      },
+      {
+         "bezier" : 1,
+         "bezierPoints" : [
+            0.23816300000000001,
+            0.083154000000000006,
+            0.55571400000000004,
+            0.35194799999999998
+         ],
+         "easingLeft" : 0.75,
+         "easingRight" : 1.0,
+         "easingType" : 1,
+         "end" : 450.0,
+         "endTime" : [ 59, 0, 1 ],
+         "layer" : 0,
+         "line" : 0,
+         "linkgroup" : 0,
+         "start" : 127.18044583722065,
+         "startTime" : [ 58, 3, 4 ],
+         "type" : 2
+      },
+      {
+         "bezier" : 1,
+         "bezierPoints" : [ 0.25, 0.68000000000000005, 0.72999999999999998, 1.05 ],
+         "easingLeft" : 0.0,
+         "easingRight" : 1.0,
+         "easingType" : 1,
+         "end" : 96.920000000000002,
+         "endTime" : [ 59, 1, 4 ],
+         "layer" : 0,
+         "line" : 0,
+         "linkgroup" : 0,
+         "start" : -450.0,
+         "startTime" : [ 59, 0, 1 ],
+         "type" : 2
+      },
+      {
+         "bezier" : 1,
+         "bezierPoints" : [ 0.37, -0.050000000000000003, 0.26000000000000001, 0.94999999999999996 ],
+         "easingLeft" : 0.0,
+         "easingRight" : 1.0,
+         "easingType" : 1,
+         "end" : -21.850000000000001,
+         "endTime" : [ 59, 1, 2 ],
+         "layer" : 0,
+         "line" : 0,
+         "linkgroup" : 0,
+         "start" : 96.920000000000002,
+         "startTime" : [ 59, 1, 4 ],
+         "type" : 2
+      },
+      {
+         "bezier" : 1,
+         "bezierPoints" : [
+            0.40999999999999998,
+            0.059999999999999998,
+            0.80000000000000004,
+            0.55000000000000004
+         ],
+         "easingLeft" : 0.0,
+         "easingRight" : 1.0,
+         "easingType" : 1,
+         "end" : 127.18000000000001,
+         "endTime" : [ 59, 3, 4 ],
+         "layer" : 0,
+         "line" : 0,
+         "linkgroup" : 0,
+         "start" : -21.850000000000001,
+         "startTime" : [ 59, 1, 2 ],
+         "type" : 2
+      },
+      {
+         "bezier" : 1,
+         "bezierPoints" : [
+            0.42999999999999999,
+            0.34000000000000002,
+            0.73999999999999999,
+            0.66000000000000003
+         ],
+         "easingLeft" : 0.0,
+         "easingRight" : 1.0,
+         "easingType" : 1,
+         "end" : 450.0,
+         "endTime" : [ 60, 0, 1 ],
+         "layer" : 0,
+         "line" : 0,
+         "linkgroup" : 0,
+         "start" : 127.18000000000001,
+         "startTime" : [ 59, 3, 4 ],
+         "type" : 2
+      }
+   ]
+}
+事件类型转换：输入选择框与文字之间加“→ ”
+图片转音符画：
+   矫正颜色染色算法的目的是为了让有固有色的note在染色后色相更接近原图，但实测效果却是更偏离原图，请检查这个算法的执行情况
+   颜色处理选择了不透明度替代亮度后，隐藏旧版染色标签

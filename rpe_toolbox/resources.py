@@ -3,7 +3,7 @@
 
 import os
 
-# 包位于 RPET new/rpet_toolbox，向上两级即项目根目录
+# 包位于 RPET new/rpe_toolbox，向上两级即项目根目录
 PROJECT_ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 ASSETS_DIR = os.path.join(PROJECT_ROOT, "assets")
 AUDIO_DIR = os.path.join(ASSETS_DIR, "audio")
@@ -18,7 +18,7 @@ def audio_path(file_name):
 
 def find_icon():
     """按优先级返回第一个存在的窗口图标文件，找不到返回 None。"""
-    for name in ("ico-z1.png", "ico.png", "ico-z2.png", "ico1.png"):
+    for name in ("ico-z1.png", "ico-z2.png"):
         path = os.path.join(ICONS_DIR, name)
         if os.path.exists(path):
             return path

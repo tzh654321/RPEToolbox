@@ -62,6 +62,7 @@ class FunctionMixin(EasingMixin):
         if not events:
             return data
 
+        # 1. 常规行（输入选择框 → 文字）：按行把源类型转换为目标类型
         converted = []
         for event in events:
             new_event = copy.deepcopy(event)
@@ -78,8 +79,158 @@ class FunctionMixin(EasingMixin):
                     break
             converted.append(new_event)
 
+        # 2. 定轨hold：把事件当作五/七列 hold
+        notes = []
+        hold_mode = self.hold_mode_var.get()
+        if hold_mode in ("5k", "7k"):
+            k = 5 if hold_mode == "5k" else 7
+            notes.extend(self._events_to_hold_notes(converted, k))
+
+        # 3. 曲线drag：把位移与缩放按音符间隔转换成一系列 drag
+        drag_mode = self.drag_mode_var.get()
+        if drag_mode != "无":
+            try:
+                density = int(self.drag_interval_var.get())
+            except ValueError:
+                raise Exception("音符间隔必须为整数")
+            if density <= 0:
+                raise Exception("音符间隔必须大于 0")
+            axis = "x" if drag_mode == "X轴位移与缩放" else "y"
+            notes.extend(self._events_to_drag_notes(converted, axis, density))
+
+        if notes:
+            # 相同时间+位置的音符去重（后生成的覆盖先生成的，边界处取后一段事件）
+            seen = {}
+            for n in notes:
+                seen[(tuple(n["startTime"]), n["positionX"])] = n
+            result_notes = sorted(
+                seen.values(),
+                key=lambda n: (self.time_to_float(n["startTime"]), n["positionX"]),
+            )
+            return {"notes": result_notes}
+
         data["events"] = converted
         return data
+
+    def _make_base_note(self, type, positionX, startTime, endTime=None, size=1.0, judgeArea=None):
+        """生成统一格式的 note（与图片转音符画输出格式一致）。"""
+        return {
+            "above": 1,
+            "alpha": 255,
+            "endTime": copy.deepcopy(endTime) if endTime is not None else copy.deepcopy(startTime),
+            "isFake": 0,
+            "judgeArea": judgeArea if judgeArea is not None else size,
+            "line": 0,
+            "positionX": positionX,
+            "size": size,
+            "speed": 1.0,
+            "startTime": copy.deepcopy(startTime),
+            "tint": [255, 255, 255],
+            "type": type,
+            "visibleTime": 999999.0,
+            "yOffset": 0.0,
+        }
+
+    def _events_to_hold_notes(self, events, k):
+        """定轨hold：事件类型 1..k 分别映射到 k 列固定轨道，生成 hold 音符。
+        5k 列位：-540/-270/0/270/540；7k 列位：-578.57/-385.71/-192.86/0/192.86/385.71/578.57。"""
+        positions = [round((i - (k - 1) / 2.0) * 1350.0 / k, 2) for i in range(k)]
+        notes = []
+        for ev in events:
+            t = ev.get("type")
+            if not isinstance(t, int) or not (1 <= t <= k):
+                continue
+            start_time = ev.get("startTime", [0, 0, 1])
+            end_time = ev.get("endTime", start_time)
+            notes.append(self._make_base_note(
+                type=2,
+                positionX=positions[t - 1],
+                startTime=start_time,
+                endTime=end_time,
+            ))
+        return notes
+
+    def _events_to_drag_notes(self, events, axis, density):
+        """曲线drag：把位移事件（x→type1 / y→type2）与缩放事件（x→type6 / y→type7）
+        按音符间隔采样成一系列 drag 音符；无缩放事件覆盖时 size/judgeArea 取 1.0。"""
+        move_type = 1 if axis == "x" else 2
+        scale_type = 6 if axis == "x" else 7
+        step = 4.0 / density
+        if step <= 0:
+            step = 0.25
+
+        move_events = [e for e in events if e.get("type") == move_type]
+        scale_events = [e for e in events if e.get("type") == scale_type]
+        scale_events.sort(key=lambda e: self.time_to_float(e.get("startTime", [0, 0, 1])))
+
+        def scale_at(t):
+            # 覆盖 t 的活动缩放事件内插值；否则沿用上一个事件的结束值；再否则 1.0
+            active = None
+            for e in scale_events:
+                s = self.time_to_float(e["startTime"])
+                en = self.time_to_float(e.get("endTime", e["startTime"]))
+                if s - 1e-9 <= t <= en + 1e-9:
+                    active = e
+                    break
+            if active:
+                s = self.time_to_float(active["startTime"])
+                en = self.time_to_float(active.get("endTime", active["startTime"]))
+                dur = en - s
+                if dur < 1e-6:
+                    return active.get("end", 1.0)
+                p = (t - s) / dur
+                return self.interpolate_value(
+                    active.get("start", 1.0),
+                    active.get("end", 1.0),
+                    p,
+                    active.get("easingType", 1),
+                    active.get("bezier", 0),
+                    active.get("bezierPoints", [0.0, 0.0, 0.0, 0.0]),
+                )
+            prev = None
+            for e in scale_events:
+                en = self.time_to_float(e.get("endTime", e["startTime"]))
+                if en < t - 1e-9:
+                    prev = e.get("end", 1.0)
+                else:
+                    break
+            return prev if prev is not None else 1.0
+
+        notes = []
+        for ev in move_events:
+            t0 = self.time_to_float(ev.get("startTime", [0, 0, 1]))
+            t1 = self.time_to_float(ev.get("endTime", ev.get("startTime", [0, 0, 1])))
+            start_val = ev.get("start", 0.0)
+            end_val = ev.get("end", start_val)
+
+            if t1 <= t0 + 1e-9:
+                size = round(max(0.05, scale_at(t0)), 4)
+                notes.append(self._make_base_note(
+                    type=4,
+                    positionX=start_val,
+                    startTime=self.float_to_time(t0),
+                    size=size,
+                ))
+                continue
+
+            t = t0
+            while t <= t1 + 1e-6:
+                p = (t - t0) / (t1 - t0)
+                val = self.interpolate_value(
+                    start_val, end_val, p,
+                    ev.get("easingType", 1),
+                    ev.get("bezier", 0),
+                    ev.get("bezierPoints", [0.0, 0.0, 0.0, 0.0]),
+                )
+                size = round(max(0.05, scale_at(t)), 4)
+                notes.append(self._make_base_note(
+                    type=4,
+                    positionX=val,
+                    startTime=self.float_to_time(t),
+                    size=size,
+                ))
+                t += step
+        return notes
 
     # ------------------------------------------------------------------
     # 功能 5: 图片转音符画（辅助：目标尺寸）
@@ -179,22 +330,22 @@ class FunctionMixin(EasingMixin):
             step_x = (1350.0 - nw) / max(width - 1, 1) if width > 1 else 0.0
             note_size = nw / 175.0
 
-        total_duration = max(1.0, height * (4.0 / density))
+        # 需求十一：每行间隔 = 音符间隔（16分音 → 1/4 拍），不按行数等比压缩
+        step_beat = 4.0 / density
         for y in range(height):
             for x in range(width):
                 r, g, b, a = pixels[y * width + x]
                 if a <= 0:
                     continue
 
+                # 需求十：透明度写入音符 alpha（所有颜色模式均保留图片透明度；0 透明度已在上方跳过）
+                alpha = a
                 if color_mode == "不透明度替代亮度":
-                    alpha = int(max(0, min(255, round((a / 255.0) * 255))))
                     color = [255, 255, 255]
+                elif color_mode == "矫正颜色染色":
+                    color = self._corrected_color_from_rgb(r, g, b)
                 else:
-                    alpha = 255
-                    if color_mode == "矫正颜色染色":
-                        color = self._corrected_color_from_rgb(r, g, b)
-                    else:
-                        color = [r, g, b]
+                    color = [r, g, b]
 
                 if width <= 1:
                     pos_x = 0.0
@@ -202,9 +353,8 @@ class FunctionMixin(EasingMixin):
                     pos_x = -675.0 + (x + 0.5) * step_x
                 else:
                     pos_x = -675.0 + half_nw + x * step_x
-                row_ratio = y / max(height - 1, 1)
-                start_beat = row_ratio * total_duration
-                end_beat = start_beat + (4.0 / density)
+                start_beat = y * step_beat
+                end_beat = start_beat + step_beat
 
                 color_key = "color" if self.legacy_tint_var.get() else "tint"
                 note = {
@@ -235,15 +385,21 @@ class FunctionMixin(EasingMixin):
             "hold": [154, 232, 253],
         }
         key = self.note_type_var.get()
-        target = base_colors.get(key, [255, 255, 255])
-
-        def multiply(a, b):
-            return int(round(a * b / 255.0))
-
-        r2 = multiply(r, target[0])
-        g2 = multiply(g, target[1])
-        b2 = multiply(b, target[2])
-        return [r2, g2, b2]
+        fixed = base_colors.get(key, [255, 255, 255])
+        # 需求十二：反推最接近结果的 tint（见 Other File/染色矫正.py）。
+        # 游戏渲染 = 正片叠底(固定色, tint)；目标是让渲染结果最接近原图像素色。
+        inferred = []
+        target = (r, g, b)
+        for i in range(3):
+            f = fixed[i]
+            t = target[i]
+            if f == 0:
+                inferred.append(255)
+            elif t >= f:
+                inferred.append(255)
+            else:
+                inferred.append(min(255, max(0, round(t * 255 / f))))
+        return inferred
 
     def _estimate_time_span(self, items):
         values = []
@@ -599,6 +755,15 @@ class FunctionMixin(EasingMixin):
                 new_ev["end"] = val_end
                 new_ev["easingLeft"] = cur_ease_l
                 new_ev["easingRight"] = cur_ease_r
+                # 需求十一：三次贝塞尔改为按数学公式（de Casteljau 细分）推导每一小段的控制点
+                if bezier_flag == 1 and isinstance(bezier_points, list) and len(bezier_points) == 4:
+                    sub_points = self._subdivide_bezier(
+                        bezier_points[0], bezier_points[1],
+                        bezier_points[2], bezier_points[3],
+                        seg_progress_start, seg_progress_end,
+                    )
+                    if sub_points is not None:
+                        new_ev["bezierPoints"] = sub_points
                 # 保留原 easingType（与需求示例输出一致）
                 new_events.append(new_ev)
                 current_t = next_t

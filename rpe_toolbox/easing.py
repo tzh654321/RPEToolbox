@@ -55,6 +55,98 @@ class EasingMixin:
             t_hat = max(0.0, min(1.0, t_hat))
         return sample_curve_y(t_hat)
 
+    def _subdivide_bezier(self, x1, y1, x2, y2, t0, t1):
+        """推导三次贝塞尔曲线 [t0,t1] 子段的控制点（需求十二优化）。
+
+        先用 de Casteljau 几何细分得到子段的 x 时间映射；
+        再对 y 控制点做最小二乘拟合，使子段在游戏内（x 反解求值）渲染出的
+        值曲线与原曲线在该区间尽可能一致（纯几何归一化会产生大幅过冲）。
+        """
+        P0 = (0.0, 0.0)
+        P1 = (x1, y1)
+        P2 = (x2, y2)
+        P3 = (1.0, 1.0)
+
+        def lerp(a, b, t):
+            return (a[0] + (b[0] - a[0]) * t, a[1] + (b[1] - a[1]) * t)
+
+        # 第 1 步：在 t1 处细分，取左侧曲线 L（覆盖 [0, t1]）
+        A = lerp(P0, P1, t1)
+        B = lerp(P1, P2, t1)
+        C = lerp(P2, P3, t1)
+        D = lerp(A, B, t1)
+        E = lerp(B, C, t1)
+        F = lerp(D, E, t1)
+        L = [P0, A, D, F]
+
+        # 第 2 步：在 s = t0/t1 处细分 L，取右侧曲线 Q（覆盖 [t0, t1]）
+        s = t0 / t1 if t1 > 1e-12 else 0.0
+        L0, L1, L2, L3 = L
+        As = lerp(L0, L1, s)
+        Bs = lerp(L1, L2, s)
+        Cs = lerp(L2, L3, s)
+        Ds = lerp(As, Bs, s)
+        Es = lerp(Bs, Cs, s)
+        Fs = lerp(Ds, Es, s)
+        Q = [Fs, Es, Cs, L3]
+
+        dx = Q[3][0] - Q[0][0]
+        dy = Q[3][1] - Q[0][1]
+        if abs(dy) < 1e-9:
+            # 子段首尾值相同（常量段），曲线形状不影响结果，保留原控制点
+            return [x1, y1, x2, y2]
+        if abs(dx) < 1e-9:
+            sx = [1.0 / 3.0, 2.0 / 3.0]
+        else:
+            sx = [(Q[1][0] - Q[0][0]) / dx, (Q[2][0] - Q[0][0]) / dx]
+
+        # 在固定 x 下最小二乘拟合 y1'/y2'：目标 g(p) = 归一化的原隐函数
+        def f(p):
+            return self.cubic_bezier(p, x1, y1, x2, y2)
+
+        f0 = f(t0)
+        f1 = f(t1)
+        span = f1 - f0
+        if abs(span) < 1e-9:
+            return [x1, y1, x2, y2]
+
+        N = 21
+        A11 = A12 = A22 = 0.0
+        b1 = b2 = 0.0
+        for i in range(N + 1):
+            p = i / N
+            target = (f(t0 + p * (t1 - t0)) - f0) / span
+            # 在固定 x 控制点下反解 X(τ)=p
+            tau = p
+            for _ in range(12):
+                X = 3 * (1 - tau) ** 2 * tau * sx[0] + 3 * (1 - tau) * tau ** 2 * sx[1] + tau ** 3
+                dX = ((3 * (1 - tau) ** 2 - 6 * (1 - tau) * tau) * sx[0]
+                      + (6 * (1 - tau) * tau - 3 * tau ** 2) * sx[1] + 3 * tau ** 2)
+                if abs(dX) < 1e-9:
+                    break
+                tau -= (X - p) / dX
+                tau = max(0.0, min(1.0, tau))
+            c1 = 3 * (1 - tau) ** 2 * tau
+            c2 = 3 * (1 - tau) * tau ** 2
+            rhs = target - tau ** 3
+            A11 += c1 * c1
+            A12 += c1 * c2
+            A22 += c2 * c2
+            b1 += c1 * rhs
+            b2 += c2 * rhs
+
+        det = A11 * A22 - A12 * A12
+        if abs(det) < 1e-12:
+            sy = [1.0 / 3.0, 2.0 / 3.0]
+        else:
+            sy = [(b1 * A22 - b2 * A12) / det, (A11 * b2 - A12 * b1) / det]
+        return [
+            round(sx[0], 6),
+            round(sy[0], 6),
+            round(sx[1], 6),
+            round(sy[1], 6),
+        ]
+
     def apply_easing(self, t, easing_type, bezier, bezier_points):
         if t <= 0:
             return 0.0
