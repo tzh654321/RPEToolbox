@@ -9,6 +9,7 @@ sys.path.insert(0, BASE)
 import tkinter as tk
 
 from rpe_toolbox.app import RPEToolbox
+from rpe_toolbox import resources
 
 root = tk.Tk()
 root.withdraw()
@@ -68,6 +69,8 @@ check("UI 曲线drag显示音符间隔行", app.frame_drag_interval.winfo_manage
 app.drag_mode_var.set("无")
 check("UI 曲线drag为无时隐藏音符间隔行", app.frame_drag_interval.winfo_manager() == "", "manager=%s" % app.frame_drag_interval.winfo_manager())
 check("UI 定轨hold默认无", app.hold_mode_var.get() == "无", app.hold_mode_var.get())
+check("UI 窗口图标优先 mini ico-z1.png", resources.find_icon() is not None and resources.find_icon().endswith("mini ico-z1.png"), str(resources.find_icon()))
+check("UI exe 图标源为完整版 ico-z1.png", resources.find_full_icon() is not None and resources.find_full_icon().endswith("ico-z1.png"), str(resources.find_full_icon()))
 
 # 验证 process_data 在图片模式下不报错（无输入框内容）
 app.current_function.set(funcs["image_to_notes"])

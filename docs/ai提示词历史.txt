@@ -2451,3 +2451,4 @@ C:\Users\ZETTAKIT\Desktop\temp\RPET new\rpet_toolbox需要更名为rpe_toolbox
 图片转音符画：
    矫正颜色染色算法的目的是为了让有固有色的note在染色后色相更接近原图，但实测效果却是更偏离原图，请检查这个算法的执行情况
    颜色处理选择了不透明度替代亮度后，隐藏旧版染色标签
+tkinter窗口左上角使用mini ico-z1.png，打包软件的文件夹中图标使用ico-z1.png；在C:\Users\ZETTAKIT\Desktop\temp\RPET写一个打包成exe的脚本，单文件，囊括所有使用到的媒体文件

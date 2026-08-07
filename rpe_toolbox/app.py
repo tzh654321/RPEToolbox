@@ -3,6 +3,7 @@
 
 import json
 import os
+import sys
 import threading
 import tkinter as tk
 import tkinter.font as tkfont
@@ -18,12 +19,26 @@ class RPEToolbox(FunctionMixin):
         self.root = root
         self.root.title("rpe工具箱")
         self.root.geometry("680x760")
-        # 设置窗口图标（PNG 格式，使用 PhotoImage）
+        # 先隐藏窗口：任务栏按钮在窗口首次显示时快照类图标（Tk 默认是羽毛），
+        # 必须在显示前设置好类图标，否则之后修改不会刷新任务栏
         try:
-            icon_path = resources.find_icon()
-            if icon_path:
-                self._window_icon = tk.PhotoImage(file=icon_path)
-                self.root.iconphoto(True, self._window_icon)
+            self.root.withdraw()
+            self.root.update()
+        except Exception:
+            pass
+        # 窗口图标：不使用 iconphoto（Tk 会持续把类图标设回 16x16/羽毛），
+        # 用 Windows API 设置类图标 32x32（与 exe 图标同源），并由定时器兜底
+        try:
+            self._apply_taskbar_icon()
+            # 窗口显示后再应用一次，避免 Tk 显示阶段覆盖图标
+            self.root.after(300, self._apply_taskbar_icon)
+            self.root.bind("<Map>", lambda e: self._apply_taskbar_icon())
+            self.root.after(3000, self._keep_taskbar_icon)
+        except Exception:
+            pass
+        # 图标已设置，显示窗口（任务栏按钮创建时类图标即为 ico-z1 32x32）
+        try:
+            self.root.deiconify()
         except Exception:
             pass
         self.ui_font_family = self._get_available_font_family()
@@ -88,6 +103,8 @@ class RPEToolbox(FunctionMixin):
         }
         self.image_ratio = None
         self._syncing_size_vars = False
+        self._audio_threads = []
+        self._icon_retry = 0
 
         # 构建界面
         self.create_widgets()
@@ -95,6 +112,231 @@ class RPEToolbox(FunctionMixin):
         # 绑定事件
         self.current_function.trace_add("write", self.on_function_change)
         self.on_function_change()  # 初始化显示状态
+
+    def _apply_taskbar_icon(self):
+        """Windows：用 WM_SETICON 设置任务栏/标题栏图标。
+
+        三管齐下：
+        1. 打包环境（frozen）设置 AppUserModelID，任务栏直接使用 exe 资源图标（与 exe 一致）
+        2. WM_SETICON 设置窗口小图标(16x16)/大图标(32x32)
+        3. SetClassLong 设置类图标，覆盖任务栏/Alt-Tab 读取类图标的路径
+        图标均取自 ico-z1.png（与 exe 文件图标同源）。
+        """
+        if os.name != "nt":
+            return
+        try:
+            import ctypes
+            import tempfile
+
+            from PIL import Image
+
+            full_icon = resources.find_full_icon()
+            mini_icon = resources.find_icon()
+            if not full_icon:
+                return
+
+            user32 = ctypes.windll.user32
+            # 释放上次加载的图标句柄，避免多次调用泄漏 GDI 句柄
+            for h in getattr(self, "_icon_handles", []):
+                try:
+                    user32.DestroyIcon(h)
+                except Exception:
+                    pass
+            self._icon_handles = []
+
+            # 打包环境：绑定 AppUserModelID，任务栏显示 exe 图标（即 ico-z1.png）
+            if getattr(sys, "frozen", False):
+                try:
+                    shell32 = ctypes.windll.shell32
+                    shell32.SetCurrentProcessExplicitAppUserModelID.argtypes = [ctypes.c_wchar_p]
+                    shell32.SetCurrentProcessExplicitAppUserModelID("rpetoolbox")
+                except Exception:
+                    pass
+
+            tmp_small_ico = None
+            tmp_big_ico = None
+            try:
+                # 标题栏小图标：使用 mini ico-z1.png（16x16 专用小图，非完整版缩放）
+                small_src = mini_icon if mini_icon and os.path.exists(mini_icon) else full_icon
+                with tempfile.NamedTemporaryFile(suffix=".ico", delete=False) as f:
+                    tmp_small_ico = f.name
+                Image.open(small_src).convert("RGBA").save(tmp_small_ico, format="ICO", sizes=[(16, 16)])
+                # 任务栏大图标：使用完整版 ico-z1.png
+                with tempfile.NamedTemporaryFile(suffix=".ico", delete=False) as f:
+                    tmp_big_ico = f.name
+                Image.open(full_icon).convert("RGBA").save(tmp_big_ico, format="ICO", sizes=[(32, 32), (48, 48)])
+
+                user32 = ctypes.windll.user32
+                # 关键：winfo_id()/枚举均不可靠（Tk 有 TkChild/TkTopLevel 多个窗口），
+                # 用 Tk 官方命令 `wm frame` 直接取 TkTopLevel（任务栏看到的显示窗口）句柄。
+                hwnd = None
+                try:
+                    frame = self.root.tk.call("wm", "frame", ".")
+                    if frame:
+                        hwnd = int(frame, 16)
+                except Exception:
+                    pass
+                if not hwnd:
+                    hwnd = self._find_main_window()
+                if not hwnd:
+                    wid = self.root.winfo_id()
+                    hwnd = user32.GetParent(wid) or wid
+                if not hwnd:
+                    # 窗口可能尚未创建（onefile 解压较慢），稍后重试
+                    if getattr(self, "_icon_retry", 0) < 10:
+                        self._icon_retry = getattr(self, "_icon_retry", 0) + 1
+                        self.root.after(500, self._apply_taskbar_icon)
+                    return
+                WM_SETICON = 0x0080
+                IMAGE_ICON = 1
+                LR_LOADFROMFILE = 0x0010
+                small = user32.LoadImageW(None, tmp_small_ico, IMAGE_ICON, 16, 16, LR_LOADFROMFILE)
+                big = user32.LoadImageW(None, tmp_big_ico, IMAGE_ICON, 32, 32, LR_LOADFROMFILE)
+                self._icon_handles = [h for h in (small, big) if h]
+                if small:
+                    user32.SendMessageW(hwnd, WM_SETICON, 0, small)
+                if big:
+                    user32.SendMessageW(hwnd, WM_SETICON, 1, big)
+                # 类图标（关键）：任务栏/Alt-Tab 实际读取的是 TkTopLevel 窗口的类图标
+                user32.GetClassLongW.restype = ctypes.c_long
+                user32.SetClassLongW.restype = ctypes.c_long
+                if big:
+                    user32.SetClassLongW(hwnd, -14, big)
+                if small:
+                    user32.SetClassLongW(hwnd, -34, small)
+                # 子类化窗口过程：WM_GETICON 动态返回我们的大/小图标。
+                # 任务栏查询窗口图标（而非类图标）时必定拿到 32x32 ico-z1，
+                # 不受 Explorer 对窗口类图标的缓存影响。
+                self._icon_big = big
+                self._icon_small = small
+                self._ensure_icon_subclass(hwnd)
+                # 发送 WM_SETICON 触发标题栏/任务栏刷新：
+                # 标题栏小图标(16x16)，任务栏大图标(32x32)，避免窗口创建时
+                # 标题栏快照到类大图标
+                user32.SendMessageW(hwnd, 0x0080, 0, small)
+                user32.SendMessageW(hwnd, 0x0080, 1, big)
+                self._icon_retry = 0
+            finally:
+                for tmp_ico in (tmp_small_ico, tmp_big_ico):
+                    if not tmp_ico:
+                        continue
+                    try:
+                        os.remove(tmp_ico)
+                    except Exception:
+                        pass
+        except Exception:
+            pass
+
+    def _find_main_window(self):
+        """按窗口标题找到主显示窗口（任务栏/资源管理器看到的顶层窗口）。"""
+        if os.name != "nt":
+            return None
+        try:
+            import ctypes
+            user32 = ctypes.windll.user32
+            found = []
+            title = self.root.title()
+
+            @ctypes.WINFUNCTYPE(ctypes.c_bool, ctypes.c_void_p, ctypes.c_void_p)
+            def _enum_cb(hwnd, lparam):
+                buf = ctypes.create_unicode_buffer(512)
+                user32.GetWindowTextW(hwnd, buf, 512)
+                if buf.value == title:
+                    found.append(hwnd)
+                return True
+
+            user32.EnumWindows(_enum_cb, 0)
+            return found[0] if found else None
+        except Exception:
+            return None
+
+    def _ensure_icon_subclass(self, hwnd):
+        """子类化 TkTopLevel 窗口过程，拦截 WM_GETICON 返回当前图标句柄。"""
+        if os.name != "nt":
+            return
+        if getattr(self, "_icon_hwnd", None) == hwnd:
+            return
+        try:
+            import ctypes
+            user32 = ctypes.windll.user32
+            LPARAM = ctypes.c_longlong
+            WNDPROC = ctypes.WINFUNCTYPE(LPARAM, ctypes.c_void_p, ctypes.c_uint, ctypes.c_void_p, LPARAM)
+            app = self
+
+            @WNDPROC
+            def _icon_proc(h, msg, wparam, lparam):
+                if msg == 0x007F:  # WM_GETICON
+                    v = int(ctypes.cast(wparam, ctypes.c_void_p).value or 0)
+                    if v == 1 and getattr(app, "_icon_big", None):
+                        return app._icon_big
+                    if getattr(app, "_icon_small", None):
+                        return app._icon_small
+                if msg == 0x0080:  # WM_SETICON：交给 DefWindowProc 存储并触发系统刷新
+                    return user32.DefWindowProcW(h, msg, wparam, lparam)
+                old_fn = getattr(app, "_icon_old_fn", None)
+                if old_fn is not None:
+                    return old_fn(h, msg, wparam, lparam)
+                return user32.DefWindowProcW(h, msg, wparam, lparam)
+
+            user32.SetWindowLongW.argtypes = [ctypes.c_void_p, ctypes.c_int, ctypes.c_long]
+            user32.SetWindowLongW.restype = ctypes.c_long
+            new_addr = ctypes.cast(_icon_proc, ctypes.c_void_p).value
+            old_addr = user32.SetWindowLongW(hwnd, -4, new_addr)  # GWL_WNDPROC
+            self._icon_old_fn = ctypes.cast(ctypes.c_void_p(old_addr), WNDPROC)
+            if not hasattr(self, "_icon_wndproc_refs"):
+                self._icon_wndproc_refs = []
+            self._icon_wndproc_refs.append(_icon_proc)  # 保持引用，防止回调被 GC
+            self._icon_hwnd = hwnd
+        except Exception:
+            pass
+
+    def _keep_taskbar_icon(self):
+        """定时检查任务栏大图标：若被 Tk 重置（如变回 16x16/羽毛），重新应用。"""
+        try:
+            import ctypes
+            user32 = ctypes.windll.user32
+            user32.GetClassLongW.restype = ctypes.c_long
+            hwnd = None
+            try:
+                frame = self.root.tk.call("wm", "frame", ".")
+                if frame:
+                    hwnd = int(frame, 16)
+            except Exception:
+                pass
+            if hwnd and self._icon_handles:
+                cur = user32.GetClassLongW(hwnd, -14)
+                if cur not in self._icon_handles:
+                    self._apply_taskbar_icon()
+        except Exception:
+            pass
+        try:
+            self.root.after(3000, self._keep_taskbar_icon)
+        except Exception:
+            pass
+
+    def shutdown(self):
+        """退出清理：销毁 Tk 窗口并等待音频线程结束，降低打包后临时目录清理失败的概率。"""
+        try:
+            self.root.destroy()
+        except Exception:
+            pass
+        for t in getattr(self, "_audio_threads", []):
+            try:
+                t.join(timeout=2)
+            except Exception:
+                pass
+        # 释放 PhotoImage 等持有文件句柄的对象
+        try:
+            import gc
+            gc.collect()
+        except Exception:
+            pass
+        # 留出时间给杀软扫描/句柄释放，降低 onefile 临时目录删除失败概率
+        try:
+            import time
+            time.sleep(0.5)
+        except Exception:
+            pass
 
     def _play_button_sound(self, kind):
         file_name = {
@@ -113,13 +355,27 @@ class RPEToolbox(FunctionMixin):
         def worker():
             try:
                 import pygame
+                import time as _time
                 pygame.mixer.init()
-                sound = pygame.mixer.Sound(audio_path)
-                sound.play()
+                try:
+                    sound = pygame.mixer.Sound(audio_path)
+                    sound.play()
+                    # 等待播放结束再释放 mixer，避免退出时持有 _MEIPASS 内音频文件句柄
+                    try:
+                        _time.sleep(max(0.0, sound.get_length() + 0.15))
+                    except Exception:
+                        pass
+                finally:
+                    pygame.mixer.quit()
             except Exception:
                 return
 
-        threading.Thread(target=worker, daemon=True).start()
+        t = threading.Thread(target=worker, daemon=True)
+        t.start()
+        try:
+            self._audio_threads.append(t)
+        except AttributeError:
+            self._audio_threads = [t]
 
     def _get_available_font_family(self):
         available = set(tkfont.families())

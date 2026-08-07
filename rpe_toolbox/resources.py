@@ -2,9 +2,17 @@
 """项目资源路径解析：音频、图标、示例图片均放在 RPET new/assets 下。"""
 
 import os
+import sys
 
-# 包位于 RPET new/rpe_toolbox，向上两级即项目根目录
-PROJECT_ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+
+def _project_root():
+    """项目根目录：PyInstaller 单文件打包后取解包目录 _MEIPASS，否则取包上级两级。"""
+    if getattr(sys, "frozen", False):
+        return sys._MEIPASS
+    return os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+
+
+PROJECT_ROOT = _project_root()
 ASSETS_DIR = os.path.join(PROJECT_ROOT, "assets")
 AUDIO_DIR = os.path.join(ASSETS_DIR, "audio")
 ICONS_DIR = os.path.join(ASSETS_DIR, "icons")
@@ -17,7 +25,16 @@ def audio_path(file_name):
 
 
 def find_icon():
-    """按优先级返回第一个存在的窗口图标文件，找不到返回 None。"""
+    """窗口标题栏图标：优先 mini 版（16x16），其次完整版；找不到返回 None。"""
+    for name in ("mini ico-z1.png", "ico-z1.png", "ico-z2.png"):
+        path = os.path.join(ICONS_DIR, name)
+        if os.path.exists(path):
+            return path
+    return None
+
+
+def find_full_icon():
+    """完整尺寸图标（打包 exe 用），找不到返回 None。"""
     for name in ("ico-z1.png", "ico-z2.png"):
         path = os.path.join(ICONS_DIR, name)
         if os.path.exists(path):

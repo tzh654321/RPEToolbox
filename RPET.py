@@ -14,7 +14,11 @@ def main():
 
     root = tk.Tk()
     app = RPEToolbox(root)
-    root.mainloop()
+    try:
+        root.mainloop()
+    finally:
+        # 退出清理：销毁 Tk 并等待音频线程，降低 onefile 临时目录清理失败的概率
+        app.shutdown()
 
 
 if __name__ == "__main__":
