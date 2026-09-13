@@ -1,0 +1,182 @@
+{
+  "_readme": {
+    "purpose": "本文件只存放界面文字，不含任何代码逻辑。程序通过 rpe_toolbox/i18n.py 读取本文件。",
+    "how_to_add_language": "复制本文件为同目录下的 <语言代码>.json（如 en-US.json），翻译各字段的值后，用环境变量 RPET_LANG=<语言代码> 启动即可。键名（key）请勿修改。",
+    "placeholders": "含 {name} 形式占位符的文字由程序填充，翻译时请保留占位符本身。",
+    "options_structure": "options 下的每一项都是「内部键: 显示文字」，内部键决定程序行为、不可修改，显示文字可自由翻译。",
+    "functions_structure": "functions 是有序数组，顺序即界面标签页顺序；key 决定程序行为、不可修改；tab 是标签页上的短标题（字数少才能排满一行），name 是完整名称，desc 是顶部显示的功能简介。"
+  },
+
+  "app": {
+    "title": "rpe工具箱",
+    "error_prefix": "【错误】: "
+  },
+
+  "functions": [
+    {
+      "key": "hold_notes_connect",
+      "tab": "首尾相接",
+      "name": "1. hold/事件首尾相接",
+      "desc": "将 Hold 音符或事件的 endTime 连接到下一个不同的 startTime"
+    },
+    {
+      "key": "nonlinear_split",
+      "tab": "非线性切割",
+      "name": "2. 非线性切割",
+      "desc": "按指定密度切分事件，并能自动处理缓动左右端点与贝塞尔控制点"
+    },
+    {
+      "key": "polar_conversion",
+      "tab": "极坐标转换",
+      "name": "3. 极坐标转换",
+      "desc": "将输入的 (X,Y) 到原点距离作为 r，旋转角度作为 θ，组成极坐标并转换"
+    },
+    {
+      "key": "event_type_convert",
+      "tab": "类型转换",
+      "name": "4. 事件类型转换",
+      "desc": "修改事件种类 ，支持常规属性和 X/Y 缩放"
+    },
+    {
+      "key": "image_to_notes",
+      "tab": "图片转音符",
+      "name": "5. 图片转音符画",
+      "desc": "使用图片生成音符画，支持 JPG/PNG 导入"
+    },
+    {
+      "key": "time_interval_to_yoffset",
+      "tab": "间隔转y偏移",
+      "name": "6. 时间间隔转y偏移",
+      "desc": "把音符按时间间隔和流速处理成 yOffset"
+    },
+    {
+      "key": "reverse_data",
+      "tab": "倒序/拉伸",
+      "name": "7. 倒序/拉伸",
+      "desc": "将音符或事件按比例拉伸/压缩时间，负比例表示倒序"
+    },
+    {
+      "key": "midi_bpm_extract",
+      "tab": "BPM提取",
+      "name": "8. MIDI BPM 提取",
+      "desc": "从 MIDI 文件中提取 BPM 变化列表"
+    }
+  ],
+
+  "labels": {
+    "input_json": "输入JSON:",
+    "output_json": "输出JSON:",
+    "density": "切割密度 / 音符间隔 (分音):",
+    "allow_shorten": "是否允许长度缩短",
+    "distinguish_track": "是否区分轨道",
+    "image_path": "图片文件路径:",
+    "note_type": "音符类型:",
+    "color_mode": "颜色处理:",
+    "legacy_tint": "旧版染色标签",
+    "note_interval": "音符间隔(分音):",
+    "flip_horizontal": "左右翻转",
+    "flip_vertical": "上下翻转",
+    "rotation": "旋转度数:",
+    "use_original_size": "使用原图片大小",
+    "pixel_width": "x像素数:",
+    "pixel_height": "y像素数:",
+    "lock_aspect": "锁定宽高比",
+    "auto_adjust_width": "自动调整音符宽度",
+    "note_width": "音符宽度:",
+    "speed": "流速:",
+    "bpm": "曲速 (bpm):",
+    "unify_start_time": "是否统一起始时间",
+    "midi_path": "MIDI 文件路径:",
+    "stretch_ratio": "拉伸比例:",
+    "stretch_ratio_hint": "(负值表示倒序，默认 -1)",
+    "drag_interval": "音符间隔（分音）",
+    "hold_track": "定轨hold",
+    "drag_curve": "曲线drag",
+    "arrow": "→",
+    "dark_mode": "深色模式"
+  },
+
+  "buttons": {
+    "convert": "转换",
+    "copy": "复制结果",
+    "clear": "清空输入/输出",
+    "browse_image": "选择图片",
+    "browse_midi": "选择 MIDI"
+  },
+
+  "options": {
+    "note_type": {
+      "tap": "tap",
+      "drag": "drag",
+      "flick": "flick",
+      "hold": "hold"
+    },
+    "color_mode": {
+      "tint": "染色",
+      "corrected_tint": "矫正颜色染色",
+      "alpha_as_luma": "不透明度替代亮度"
+    },
+    "rotation": {
+      "0": "0°",
+      "90": "90°",
+      "180": "180°",
+      "270": "270°"
+    },
+    "event_type": {
+      "1": "X轴位移",
+      "2": "Y轴位移",
+      "3": "旋转",
+      "4": "透明度",
+      "5": "流速",
+      "6": "X轴缩放",
+      "7": "Y轴缩放"
+    },
+    "hold_mode": {
+      "none": "无",
+      "5k": "5k(常规事件)",
+      "7k": "7k(包括缩放)"
+    },
+    "drag_mode": {
+      "none": "无",
+      "x": "X轴位移与缩放",
+      "y": "y轴位移与缩放"
+    }
+  },
+
+  "dialogs": {
+    "tip_title": "提示",
+    "no_result_to_copy": "没有有效结果可复制",
+    "choose_image_title": "选择图片",
+    "choose_midi_title": "选择 MIDI",
+    "filter_image": "图片文件",
+    "filter_midi": "MIDI 文件",
+    "filter_all": "所有文件"
+  },
+
+  "errors": {
+    "input_empty": "输入为空",
+    "json_format": "JSON格式错误: {err}",
+    "unknown_function": "未知功能",
+    "speed_bpm_number": "流速 / bpm 必须为数字",
+    "bpm_positive": "bpm 必须大于 0",
+    "drag_interval_int": "音符间隔必须为整数",
+    "drag_interval_positive": "音符间隔必须大于 0",
+    "pixel_size_int": "x像素数 / y像素数必须为整数",
+    "pillow_missing": "缺少 Pillow 依赖，请先安装 pillow",
+    "image_invalid": "请选择有效图片文件",
+    "density_positive": "切割密度必须大于 0",
+    "image_read_failed": "无法读取图片: {err}",
+    "rotation_invalid": "旋转度数必须为 0/90/180/270",
+    "image_size_invalid": "图片尺寸无效",
+    "note_width_number": "音符宽度必须为数字",
+    "stretch_ratio_number": "拉伸比例必须为数字",
+    "stretch_ratio_zero": "拉伸比例不能为 0",
+    "midi_incomplete": "MIDI 数据不完整",
+    "midi_invalid": "请选择有效 MIDI 文件",
+    "midi_not_standard": "不是标准 MIDI 文件",
+    "midi_too_short": "MIDI 文件过短",
+    "midi_resolution_invalid": "MIDI 分辨率无效",
+    "midi_running_status_missing": "MIDI 运行状态缺失",
+    "midi_no_bpm": "未在 MIDI 中找到 BPM 变化"
+  }
+}

@@ -94,7 +94,8 @@ def count_arrows(frame):
     n = 0
     for child in frame.winfo_children():
         try:
-            if child.winfo_class() == "Label" and child.cget("text") == "\u2192":
+            # 界面已统一为 ttk 控件（配合 sv-ttk 主题），ttk.Label 的 winfo_class 为 TLabel
+            if child.winfo_class() in ("Label", "TLabel") and child.cget("text") == "\u2192":
                 n += 1
         except Exception:
             pass

@@ -6,6 +6,12 @@ import sys
 # 保证从任意目录启动都能找到 rpe_toolbox 包
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 
+from rpe_toolbox import dpi  # noqa: E402  （不含 tkinter，可安全提前导入）
+
+# 关键：必须在 import tkinter 之前启用进程级 DPI 感知。
+# 否则系统会把非 DPI 感知的程序按位图插值缩放，高分屏下整个界面发虚、字体模糊。
+dpi.enable_dpi_awareness()
+
 
 def main():
     import tkinter as tk
@@ -13,6 +19,8 @@ def main():
     from rpe_toolbox.app import RPEToolbox
 
     root = tk.Tk()
+    # 按系统 DPI 校准 Tk 内部缩放因子（点值字号在高分屏下保持正确物理尺寸）
+    dpi.sync_tk_scaling(root)
     app = RPEToolbox(root)
     try:
         root.mainloop()

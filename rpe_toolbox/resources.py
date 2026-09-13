@@ -1,5 +1,5 @@
 # -*- coding: utf-8 -*-
-"""项目资源路径解析：音频、图标、示例图片均放在 RPET new/assets 下。"""
+"""项目资源路径解析：音频、图标、示例图片、界面文案均放在 RPET new/assets 下。"""
 
 import os
 import sys
@@ -17,11 +17,23 @@ ASSETS_DIR = os.path.join(PROJECT_ROOT, "assets")
 AUDIO_DIR = os.path.join(ASSETS_DIR, "audio")
 ICONS_DIR = os.path.join(ASSETS_DIR, "icons")
 IMAGES_DIR = os.path.join(ASSETS_DIR, "images")
+LANG_DIR = os.path.join(ASSETS_DIR, "lang")
 
 
 def audio_path(file_name):
     """返回音频文件绝对路径（不存在时仍返回路径，由调用方判断）。"""
     return os.path.join(AUDIO_DIR, file_name)
+
+
+def lang_path(language_code):
+    """返回界面文案文件（assets/lang/<语言代码>.json）的绝对路径。"""
+    return os.path.join(LANG_DIR, language_code + ".json")
+
+
+def user_config_path():
+    """用户配置（主题等）存放位置：%APPDATA%/RPEToolbox/config.json，无 APPDATA 时放到用户目录。"""
+    base = os.environ.get("APPDATA") or os.path.expanduser("~")
+    return os.path.join(base, "RPEToolbox", "config.json")
 
 
 def find_icon():

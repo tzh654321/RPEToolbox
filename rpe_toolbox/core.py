@@ -8,7 +8,9 @@ import copy
 import math
 import os
 
+from . import i18n
 from .easing import EasingMixin
+from .i18n import t
 from .imglib import Image, ImageOps
 
 
@@ -25,9 +27,9 @@ class FunctionMixin(EasingMixin):
             flow_speed = float(self.time_offset_speed_var.get())
             bpm = float(self.time_offset_bpm_var.get())
         except ValueError:
-            raise Exception("流速 / bpm 必须为数字")
+            raise Exception(t("errors.speed_bpm_number"))
         if bpm <= 0:
-            raise Exception("bpm 必须大于 0")
+            raise Exception(t("errors.bpm_positive"))
 
         unify_start_time = self.time_offset_unify_var.get()
         first_start = self.time_to_float(notes[0].get("startTime", [0, 0, 1]))
@@ -51,7 +53,7 @@ class FunctionMixin(EasingMixin):
 
             converted.append(new_note)
 
-        data["notes"] = converted if converted else [copy.deepcopy(notes[0])]
+        data["notes"] = converted
         return data
 
     # ------------------------------------------------------------------
@@ -81,21 +83,21 @@ class FunctionMixin(EasingMixin):
 
         # 2. 定轨hold：把事件当作五/七列 hold
         notes = []
-        hold_mode = self.hold_mode_var.get()
+        hold_mode = i18n.option_key("hold_mode", self.hold_mode_var.get())
         if hold_mode in ("5k", "7k"):
             k = 5 if hold_mode == "5k" else 7
             notes.extend(self._events_to_hold_notes(converted, k))
 
         # 3. 曲线drag：把位移与缩放按音符间隔转换成一系列 drag
-        drag_mode = self.drag_mode_var.get()
-        if drag_mode != "无":
+        drag_mode = i18n.option_key("drag_mode", self.drag_mode_var.get())
+        if drag_mode != "none":
             try:
                 density = int(self.drag_interval_var.get())
             except ValueError:
-                raise Exception("音符间隔必须为整数")
+                raise Exception(t("errors.drag_interval_int"))
             if density <= 0:
-                raise Exception("音符间隔必须大于 0")
-            axis = "x" if drag_mode == "X轴位移与缩放" else "y"
+                raise Exception(t("errors.drag_interval_positive"))
+            axis = "x" if drag_mode == "x" else "y"
             notes.extend(self._events_to_drag_notes(converted, axis, density))
 
         if notes:
@@ -244,7 +246,7 @@ class FunctionMixin(EasingMixin):
             target_w = int(self.pixel_width_var.get())
             target_h = int(self.pixel_height_var.get())
         except ValueError:
-            raise Exception("x像素数 / y像素数必须为整数")
+            raise Exception(t("errors.pixel_size_int"))
 
         if target_w <= 0 and target_h <= 0:
             target_w, target_h = 65, 65
@@ -263,25 +265,25 @@ class FunctionMixin(EasingMixin):
 
     def func_image_to_notes(self, data):
         if Image is None:
-            raise Exception("缺少 Pillow 依赖，请先安装 pillow")
+            raise Exception(t("errors.pillow_missing"))
 
         image_path = self.image_path_var.get().strip()
         if not image_path or not os.path.exists(image_path):
-            raise Exception("请选择有效图片文件")
+            raise Exception(t("errors.image_invalid"))
 
-        note_type = self.note_type_var.get()
-        color_mode = self.color_mode_var.get()
+        note_type = i18n.option_key("note_type", self.note_type_var.get())
+        color_mode = i18n.option_key("color_mode", self.color_mode_var.get())
         density = int(self.density_var.get()) if self.density_var.get().strip() else 16
         if density <= 0:
-            raise Exception("切割密度必须大于 0")
+            raise Exception(t("errors.density_positive"))
 
         try:
             with Image.open(image_path) as src_img:
                 img = src_img.convert("RGBA")
         except Exception as e:
-            raise Exception(f"无法读取图片: {e}")
+            raise Exception(t("errors.image_read_failed", err=e))
 
-        resample = getattr(Image, "Resampling", Image).LANCZOS if hasattr(Image, "Resampling") else Image.LANCZOS
+        resample = getattr(Image, "Resampling", Image).LANCZOS
 
         if self.flip_horizontal_var.get():
             img = ImageOps.mirror(img)
@@ -289,19 +291,15 @@ class FunctionMixin(EasingMixin):
         if not self.flip_vertical_var.get():
             img = ImageOps.flip(img)
 
-        rotation_text = self.rotation_var.get().replace("°", "")
-        try:
-            rotation_angle = int(rotation_text)
-        except ValueError:
-            raise Exception("旋转度数必须为 0/90/180/270")
+        rotation_angle = i18n.option_int_key("rotation", self.rotation_var.get())
+        if rotation_angle is None:
+            raise Exception(t("errors.rotation_invalid"))
         if rotation_angle % 360 != 0:
             img = img.rotate(rotation_angle, resample=resample, expand=True)
 
         target_w, target_h = self._resolve_image_target_size(img)
         if not self.use_original_size_var.get():
             img = img.resize((target_w, target_h), resample)
-        else:
-            target_w, target_h = img.width, img.height
 
         pixels = list(img.getdata())
         notes = []
@@ -311,12 +309,12 @@ class FunctionMixin(EasingMixin):
         width = img.width
         height = img.height
         if width <= 0 or height <= 0:
-            raise Exception("图片尺寸无效")
+            raise Exception(t("errors.image_size_invalid"))
 
         try:
             note_width = float(self.note_width_var.get())
         except ValueError:
-            raise Exception("音符宽度必须为数字")
+            raise Exception(t("errors.note_width_number"))
 
         if self.auto_adjust_width_var.get():
             # 自动调整音符宽度：音符均匀铺满整个屏幕（1350 宽），并同步调整音符 size
@@ -340,9 +338,9 @@ class FunctionMixin(EasingMixin):
 
                 # 需求十：透明度写入音符 alpha（所有颜色模式均保留图片透明度；0 透明度已在上方跳过）
                 alpha = a
-                if color_mode == "不透明度替代亮度":
+                if color_mode == "alpha_as_luma":
                     color = [255, 255, 255]
-                elif color_mode == "矫正颜色染色":
+                elif color_mode == "corrected_tint":
                     color = self._corrected_color_from_rgb(r, g, b)
                 else:
                     color = [r, g, b]
@@ -384,7 +382,7 @@ class FunctionMixin(EasingMixin):
             "flick": [254, 67, 101],
             "hold": [154, 232, 253],
         }
-        key = self.note_type_var.get()
+        key = i18n.option_key("note_type", self.note_type_var.get())
         fixed = base_colors.get(key, [255, 255, 255])
         # 需求十二：反推最接近结果的 tint（见 Other File/染色矫正.py）。
         # 游戏渲染 = 正片叠底(固定色, tint)；目标是让渲染结果最接近原图像素色。
@@ -401,16 +399,6 @@ class FunctionMixin(EasingMixin):
                 inferred.append(min(255, max(0, round(t * 255 / f))))
         return inferred
 
-    def _estimate_time_span(self, items):
-        values = []
-        for item in items:
-            for key in ("startTime", "endTime"):
-                if key in item:
-                    values.append(self.time_to_float(item.get(key, [0, 0, 1])))
-        if not values:
-            return 0.0
-        return max(values)
-
     # ------------------------------------------------------------------
     # 功能 7: 倒序 / 拉伸
     # ------------------------------------------------------------------
@@ -420,10 +408,10 @@ class FunctionMixin(EasingMixin):
         try:
             ratio = float(self.stretch_ratio_var.get())
         except ValueError:
-            raise Exception("拉伸比例必须为数字")
+            raise Exception(t("errors.stretch_ratio_number"))
 
         if ratio == 0:
-            raise Exception("拉伸比例不能为 0")
+            raise Exception(t("errors.stretch_ratio_zero"))
 
         negative = ratio < 0
 
@@ -503,7 +491,7 @@ class FunctionMixin(EasingMixin):
         value = 0
         while True:
             if offset >= len(data):
-                raise Exception("MIDI 数据不完整")
+                raise Exception(t("errors.midi_incomplete"))
             byte = data[offset]
             offset += 1
             value = (value << 7) | (byte & 0x7F)
@@ -514,20 +502,20 @@ class FunctionMixin(EasingMixin):
     def func_extract_midi_bpm(self, data):
         midi_path = self.midi_path_var.get().strip()
         if not midi_path or not os.path.exists(midi_path):
-            raise Exception("请选择有效 MIDI 文件")
+            raise Exception(t("errors.midi_invalid"))
 
         with open(midi_path, "rb") as fh:
             raw = fh.read()
 
         if raw[:4] != b"MThd":
-            raise Exception("不是标准 MIDI 文件")
+            raise Exception(t("errors.midi_not_standard"))
 
         if len(raw) < 14:
-            raise Exception("MIDI 文件过短")
+            raise Exception(t("errors.midi_too_short"))
 
         division = int.from_bytes(raw[12:14], byteorder="big", signed=True)
         if division == 0:
-            raise Exception("MIDI 分辨率无效")
+            raise Exception(t("errors.midi_resolution_invalid"))
 
         offset = 14
         bpm_changes = []
@@ -553,7 +541,7 @@ class FunctionMixin(EasingMixin):
                 status = track_data[cursor]
                 if status < 0x80:
                     if running_status is None:
-                        raise Exception("MIDI 运行状态缺失")
+                        raise Exception(t("errors.midi_running_status_missing"))
                     event_status = running_status
                     event_data = status
                 else:
@@ -584,13 +572,14 @@ class FunctionMixin(EasingMixin):
                         break
                     length, cursor = self._read_var_int(track_data, cursor)
                     cursor += length
-                elif event_status == 0xC0 or event_status == 0xD0 or event_status == 0xE0 or event_status == 0x90 or event_status == 0x80 or event_status == 0xA0 or event_status == 0xB0:
+                elif event_status < 0xF0:
+                    # 普通通道消息（0x80~0xEF）：仅跳过数据字节（C0/D0 一个，其余两个）
                     cursor += 1
-                    if event_status != 0xC0 and event_status != 0xD0:
+                    if event_status not in (0xC0, 0xD0):
                         cursor += 1
 
         if not bpm_changes:
-            raise Exception("未在 MIDI 中找到 BPM 变化")
+            raise Exception(t("errors.midi_no_bpm"))
 
         # 需求九：输出格式为 BPMList（bpm + startTime），无需 midiPath
         return {"BPMList": bpm_changes}
@@ -600,6 +589,7 @@ class FunctionMixin(EasingMixin):
     # ------------------------------------------------------------------
     def func_hold_connect(self, data):
         distinguish = self.distinguish_track_var.get()
+        allow_shorten = self.allow_shorten_var.get()
 
         if "notes" in data and data.get("notes"):
             notes = copy.deepcopy(data["notes"])
@@ -607,21 +597,27 @@ class FunctionMixin(EasingMixin):
                 # 区分轨道：按 x 坐标差距 < 175 分组，组内仅对 x 差距 < 175 的前后相邻 hold 首尾相接
                 groups = self._group_notes_by_track(notes)
                 for group in groups:
-                    self._connect_group_notes(group)
+                    self._connect_group_notes(group, allow_shorten)
             else:
-                # 不区分轨道：沿用原逻辑（按唯一开始时间连接）
+                # 不区分轨道：按唯一开始时间连接
                 unique_start_times = sorted(set(self.time_to_float(n["startTime"]) for n in notes))
                 for note in notes:
                     if note.get("type") != 2:
                         continue
                     current_start = self.time_to_float(note["startTime"])
-                    next_start_time_val = None
-                    for t in unique_start_times:
-                        if t > current_start:
-                            next_start_time_val = t
-                            break
-                    if next_start_time_val is not None:
+                    current_end = self.time_to_float(note.get("endTime", note["startTime"]))
+                    next_start_time_val = self._next_unique_time(unique_start_times, current_start)
+                    if next_start_time_val is None:
+                        continue
+                    if allow_shorten or next_start_time_val > current_end + 1e-9:
                         note["endTime"] = self.float_to_time(next_start_time_val)
+                    elif next_start_time_val < current_end - 1e-9:
+                        # 不允许缩短：本会被缩短的长条改为从其结束时间起
+                        # 寻找下一个音符开始时间来延长；找不到则保持原样
+                        extend_time = self._next_unique_time(unique_start_times, current_end)
+                        if extend_time is not None:
+                            note["endTime"] = self.float_to_time(extend_time)
+                    # next_start ≈ current_end：已首尾相接，保持不变
             data["notes"] = notes
             return data
 
@@ -633,23 +629,36 @@ class FunctionMixin(EasingMixin):
                 for ev in events:
                     groups.setdefault(ev.get("line", 0), []).append(ev)
                 for group in groups.values():
-                    self._connect_group_events(group)
+                    self._connect_group_events(group, allow_shorten)
             else:
                 # 不区分轨道：按唯一开始时间连接
                 unique_start_times = sorted(set(self.time_to_float(e["startTime"]) for e in events))
                 for ev in events:
                     current_start = self.time_to_float(ev["startTime"])
-                    next_start_time_val = None
-                    for t in unique_start_times:
-                        if t > current_start:
-                            next_start_time_val = t
-                            break
-                    if next_start_time_val is not None:
+                    current_end = self.time_to_float(ev.get("endTime", ev["startTime"]))
+                    next_start_time_val = self._next_unique_time(unique_start_times, current_start)
+                    if next_start_time_val is None:
+                        continue
+                    if allow_shorten or next_start_time_val > current_end + 1e-9:
                         ev["endTime"] = self.float_to_time(next_start_time_val)
+                    elif next_start_time_val < current_end - 1e-9:
+                        # 不允许缩短：本会被缩短的事件改为从其结束时间起延长
+                        extend_time = self._next_unique_time(unique_start_times, current_end)
+                        if extend_time is not None:
+                            ev["endTime"] = self.float_to_time(extend_time)
+                    # next_start ≈ current_end：已首尾相接，保持不变
             data["events"] = events
             return data
 
         return data
+
+    @staticmethod
+    def _next_unique_time(sorted_times, after_t):
+        """返回 sorted_times 中第一个严格晚于 after_t（留 1e-9 容差）的时间，没有则 None"""
+        for t in sorted_times:
+            if t > after_t + 1e-9:
+                return t
+        return None
 
     def _group_notes_by_track(self, notes):
         """将 hold 音符按 x 坐标差距 < 175 分组（相邻差距 < 175 视为同一轨道）"""
@@ -671,38 +680,57 @@ class FunctionMixin(EasingMixin):
         groups.append(current_group)
         return groups
 
-    def _connect_group_notes(self, group):
+    def _connect_group_notes(self, group, allow_shorten=True):
         """组内 hold 按时间排序，仅当下一根 hold 的 x 坐标差距 < 175 时首尾相接；
-        相同开始时间的 hold（双押）共同参考下一个不同开始时间。"""
+        相同开始时间的 hold（双押）共同参考下一个不同开始时间。
+        不允许缩短时，本会被缩短的 hold 改为从其结束时间起寻找下一个满足轨道条件的开始时间。"""
         group.sort(key=lambda n: self.time_to_float(n["startTime"]))
         unique_times = sorted(set(self.time_to_float(n["startTime"]) for n in group))
         for note in group:
             cur_t = self.time_to_float(note["startTime"])
             cur_x = note.get("positionX", 0.0)
-            next_time = None
-            for t in unique_times:
-                if t > cur_t + 1e-9:
-                    next_time = t
-                    break
+            cur_end = self.time_to_float(note.get("endTime", note["startTime"]))
+            next_time = self._next_unique_time(unique_times, cur_t)
             if next_time is None:
                 continue
             candidates = [n for n in group
                           if abs(self.time_to_float(n["startTime"]) - next_time) < 1e-9
                           and abs(n.get("positionX", 0.0) - cur_x) < 175]
-            if candidates:
+            if not candidates:
+                continue
+            if allow_shorten or next_time > cur_end + 1e-9:
                 note["endTime"] = copy.deepcopy(candidates[0]["startTime"])
+            elif next_time < cur_end - 1e-9:
+                # 不允许缩短：从结束时间起寻找下一个满足轨道条件的开始时间来延长
+                extend_time = self._next_unique_time(unique_times, cur_end)
+                if extend_time is not None:
+                    ext_candidates = [n for n in group
+                                      if abs(self.time_to_float(n["startTime"]) - extend_time) < 1e-9
+                                      and abs(n.get("positionX", 0.0) - cur_x) < 175]
+                    if ext_candidates:
+                        note["endTime"] = copy.deepcopy(ext_candidates[0]["startTime"])
+            # next_time ≈ cur_end：已首尾相接，保持不变
         # 最后一个（或后续无满足条件的）保持原样
 
-    def _connect_group_events(self, group):
-        """组内事件按时间排序，首尾相接（endTime = 下一个不同 startTime）"""
+    def _connect_group_events(self, group, allow_shorten=True):
+        """组内事件按时间排序，首尾相接（endTime = 下一个不同 startTime）。
+        不允许缩短时，本会被缩短的事件改为从其结束时间起寻找下一个开始时间。"""
         group.sort(key=lambda e: self.time_to_float(e["startTime"]))
         unique_times = sorted(set(self.time_to_float(e["startTime"]) for e in group))
         for ev in group:
             cur_t = self.time_to_float(ev["startTime"])
-            for t in unique_times:
-                if t > cur_t + 1e-9:
-                    ev["endTime"] = copy.deepcopy(self.float_to_time(t))
-                    break
+            cur_end = self.time_to_float(ev.get("endTime", ev["startTime"]))
+            next_time = self._next_unique_time(unique_times, cur_t)
+            if next_time is None:
+                continue
+            if allow_shorten or next_time > cur_end + 1e-9:
+                ev["endTime"] = copy.deepcopy(self.float_to_time(next_time))
+            elif next_time < cur_end - 1e-9:
+                # 不允许缩短：从结束时间起寻找下一个开始时间来延长
+                extend_time = self._next_unique_time(unique_times, cur_end)
+                if extend_time is not None:
+                    ev["endTime"] = copy.deepcopy(self.float_to_time(extend_time))
+            # next_time ≈ cur_end：已首尾相接，保持不变
         # 最后一个保持原样
 
     # ------------------------------------------------------------------
@@ -773,6 +801,7 @@ class FunctionMixin(EasingMixin):
 
     # ------------------------------------------------------------------
     # 功能 3: 旋转事件与距离生成普通事件（极坐标转换）
+    #   X/Y 事件按密度切割成线性段并换算为绝对坐标；旋转事件原样复制输入，不参与切割
     # ------------------------------------------------------------------
     def func_polar_conversion(self, data, density):
         events = data.get("events", [])
@@ -790,131 +819,139 @@ class FunctionMixin(EasingMixin):
         min_t = min(all_times)
         max_t = max(all_times)
 
-        # 按密度生成时间轴
+        # 按密度生成时间轴，并合并所有事件的边界时刻（跳变时刻必须被精确采样）
         step = 4.0 / density
         if step <= 0:
             step = 0.25
 
+        grid_times = []
         current_t = min_t
-        timeline = []
         while current_t <= max_t + 1e-6:
-            timeline.append(current_t)
+            grid_times.append(current_t)
             current_t += step
 
-        # 取某 type 在时刻 t 的值：活动事件内插值，未定义段沿用上个事件结束值，否则用下一个事件起始值
-        def get_val_at(t, target_type, evts):
-            type_evts = [e for e in evts if e["type"] == target_type]
+        timeline = sorted(t for t in (set(grid_times) | all_times)
+                          if min_t - 1e-9 <= t <= max_t + 1e-9)
+
+        # 按 type 预分组，避免每次采样都重新过滤/排序
+        events_by_type = {}
+        for e in events:
+            events_by_type.setdefault(e["type"], []).append(e)
+        for type_evts in events_by_type.values():
+            type_evts.sort(key=lambda x: self.time_to_float(x["startTime"]))
+
+        def _event_value_at(active, t):
+            """按 easingLeft/easingRight 窗口计算事件在时刻 t 的值，窗口外钳位到 start/end"""
+            s = self.time_to_float(active["startTime"])
+            en = self.time_to_float(active["endTime"])
+            start_v = active["start"]
+            end_v = active["end"]
+            dur = en - s
+            if dur < 1e-9:
+                # 零时长事件视为瞬时跳变
+                return end_v
+            p = (t - s) / dur
+            easing_left = active.get("easingLeft", 0.0)
+            easing_right = active.get("easingRight", 1.0)
+            if easing_right < easing_left:
+                easing_left, easing_right = easing_right, easing_left
+            if p <= easing_left:
+                return start_v
+            if p >= easing_right:
+                return end_v
+            span = easing_right - easing_left
+            if span < 1e-9:
+                return end_v
+            norm = (p - easing_left) / span
+            eased = self.apply_easing(norm, active.get("easingType", 1),
+                                      active.get("bezier", 0),
+                                      active.get("bezierPoints", [0.0, 0.0, 0.0, 0.0]))
+            return start_v + (end_v - start_v) * eased
+
+        def sample(t, target_type, side):
+            """取某类型事件在时刻 t 的值；side='right' 取右极限（新开始的事件优先），
+            side='left' 取左极限（旧事件优先）。未定义段沿用上个事件结束值，否则用下一个事件起始值。"""
+            type_evts = events_by_type.get(target_type)
             if not type_evts:
                 return 0.0
 
-            type_evts.sort(key=lambda x: self.time_to_float(x["startTime"]))
-
-            active = None
+            best = None
+            best_s = None
             for e in type_evts:
                 s = self.time_to_float(e["startTime"])
                 en = self.time_to_float(e["endTime"])
-                if s <= t <= en:
-                    active = e
-                    break
-
-            if active:
-                s = self.time_to_float(active["startTime"])
-                en = self.time_to_float(active["endTime"])
-                dur = en - s
-                if dur < 1e-6:
-                    return active["start"]
-                p = (t - s) / dur
-                bezier_flag = active.get("bezier", 0)
-                bezier_points = active.get("bezierPoints", [0.0, 0.0, 0.0, 0.0])
-                easing_type = active.get("easingType", 1)
-                eased = self.apply_easing(p, easing_type, bezier_flag, bezier_points)
-                return active["start"] + (active["end"] - active["start"]) * eased
+                started = s <= t + 1e-9 if side == "right" else s < t - 1e-9
+                if started and en >= t - 1e-9:
+                    if best is None or s >= best_s:
+                        best = e
+                        best_s = s
+            if best is not None:
+                return _event_value_at(best, t)
 
             prev_val = None
             for e in type_evts:
-                en = self.time_to_float(e["endTime"])
-                if en < t - 1e-6:
+                if self.time_to_float(e["endTime"]) < t - 1e-9:
                     prev_val = e["end"]
                 else:
                     break
-
             if prev_val is not None:
                 return prev_val
 
             for e in type_evts:
-                s = self.time_to_float(e["startTime"])
-                if s > t + 1e-6:
+                if self.time_to_float(e["startTime"]) > t + 1e-9:
                     return e["start"]
 
             return 0.0
 
-        new_events = []
-
-        # 实现思路：Type1=X、Type2=Y、Type3=旋转；极坐标换算见 Other File/大段注释整理.md
-        prev_x = 0.0
-        prev_y = 0.0
-        prev_rot = 0.0
-
+        EPS = 1e-6
         temp_events_x = []
         temp_events_y = []
-        temp_events_rot = []
-
         last_x = None
         last_y = None
-        last_rot = None
 
-        for t in timeline:
-            raw_x = get_val_at(t, 1, events)
-            raw_y = get_val_at(t, 2, events)
-            raw_rot_deg = get_val_at(t, 3, events)
+        def make_ev(ttype, t0, t1, v0, v1):
+            return {
+                "type": ttype, "line": 0, "layer": 0, "linkgroup": 0,
+                "bezier": 0, "bezierPoints": [0.0, 0.0, 0.0, 0.0],
+                "easingType": 1, "easingLeft": 0.0, "easingRight": 1.0,
+                "startTime": self.float_to_time(t0), "endTime": self.float_to_time(t1),
+                "start": v0, "end": v1,
+            }
 
-            # 计算与圆心距离，并根据旋转输出绝对坐标
-            dist = math.sqrt(raw_x ** 2 + raw_y ** 2)
-            rot_rad = math.radians(raw_rot_deg)
-            new_x = dist * math.sin(rot_rad)
-            new_y = dist * math.cos(rot_rad)
+        def emit(evt_list, v0, v1, last_val, ttype, t0, t1, force=False):
+            """输出一个线性段；区间起点相对上一输出发生跳变时也必须输出以锚定新值"""
+            changed = abs(v1 - v0) > EPS
+            jumped = last_val is not None and abs(v0 - last_val) > EPS
+            if not changed and not jumped and not force:
+                return last_val
+            evt_list.append(make_ev(ttype, t0, t1, v0, v1))
+            return v1
 
-            if last_x is None:
-                last_x = new_x
-                last_y = new_y
-                last_rot = raw_rot_deg
-            else:
-                if abs(new_x - last_x) < 1e-6 and abs(new_y - last_y) < 1e-6 and abs(raw_rot_deg - last_rot) < 1e-6:
-                    last_x = new_x
-                    last_y = new_y
-                    last_rot = raw_rot_deg
-                    continue
+        has_xy = 1 in events_by_type or 2 in events_by_type
 
-            if t > min_t:
-                prev_t = t - step
-                ev_x = {
-                    "type": 1, "line": 0, "layer": 0, "linkgroup": 0, "bezier": 0, "bezierPoints": [0.0, 0.0, 0.0, 0.0],
-                    "easingType": 1, "easingLeft": 0.0, "easingRight": 1.0,
-                    "startTime": self.float_to_time(prev_t), "endTime": self.float_to_time(t),
-                    "start": last_x, "end": new_x
-                }
-                temp_events_x.append(ev_x)
+        # 逐区间输出：区间起点取右极限（跳变后的新值），终点取左极限（跳变前的旧值），
+        # 再各自做极坐标换算。输入事件在某时刻数值突变时，输出拆成
+        # "上一段以旧值结束 + 下一段以新值开始" 两段，而不是用一段时间做平滑过渡。
+        for i in range(len(timeline) - 1):
+            t0 = timeline[i]
+            t1 = timeline[i + 1]
 
-                ev_y = {
-                    "type": 2, "line": 0, "layer": 0, "linkgroup": 0, "bezier": 0, "bezierPoints": [0.0, 0.0, 0.0, 0.0],
-                    "easingType": 1, "easingLeft": 0.0, "easingRight": 1.0,
-                    "startTime": self.float_to_time(prev_t), "endTime": self.float_to_time(t),
-                    "start": last_y, "end": new_y
-                }
-                temp_events_y.append(ev_y)
+            x0 = sample(t0, 1, "right"); x1 = sample(t1, 1, "left")
+            y0 = sample(t0, 2, "right"); y1 = sample(t1, 2, "left")
+            r0 = sample(t0, 3, "right"); r1 = sample(t1, 3, "left")
 
-                ev_r = {
-                    "type": 3, "line": 0, "layer": 0, "linkgroup": 0, "bezier": 0, "bezierPoints": [0.0, 0.0, 0.0, 0.0],
-                    "easingType": 1, "easingLeft": 0.0, "easingRight": 1.0,
-                    "startTime": self.float_to_time(prev_t), "endTime": self.float_to_time(t),
-                    "start": last_rot, "end": raw_rot_deg
-                }
-                temp_events_rot.append(ev_r)
+            d0 = math.sqrt(x0 ** 2 + y0 ** 2)
+            d1 = math.sqrt(x1 ** 2 + y1 ** 2)
+            v0x = d0 * math.sin(math.radians(r0)); v1x = d1 * math.sin(math.radians(r1))
+            v0y = d0 * math.cos(math.radians(r0)); v1y = d1 * math.cos(math.radians(r1))
 
-            last_x = new_x
-            last_y = new_y
-            last_rot = raw_rot_deg
+            # 首个区间强制输出一次，锚定各通道初始值，保证后续任何跳变都有明确的"前值"可对照
+            last_x = emit(temp_events_x, v0x, v1x, last_x, 1, t0, t1, force=(i == 0 and has_xy))
+            last_y = emit(temp_events_y, v0y, v1y, last_y, 2, t0, t1, force=(i == 0 and has_xy))
 
-        new_events = temp_events_x + temp_events_y + temp_events_rot
+        # 旋转事件不切割：直接复制输入的旋转事件（旋转仍参与 r/θ 换算，只是输出保持输入原貌）
+        copied_rotations = [copy.deepcopy(e) for e in events if e.get("type") == 3]
+
+        new_events = temp_events_x + temp_events_y + copied_rotations
         data["events"] = new_events
         return data
