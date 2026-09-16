@@ -11,6 +11,11 @@ import tkinter as tk
 
 from rpe_toolbox.app import RPEToolbox
 
+# 模组化后，颜色矫正算法属于"图片转音符画"模组，直接从模组模块取
+from rpe_toolbox import mods_loader  # noqa: E402
+
+IMG = mods_loader.find("image_to_notes").module
+
 root = tk.Tk()
 root.withdraw()
 app = RPEToolbox(root)
@@ -66,11 +71,11 @@ check("J 段边界值精确", near(boundary, exact, 1e-6), "%.4f vs %.4f" % (bou
 
 # ---- 测试K: 矫正颜色染色 = 反推最接近结果 ----
 app.note_type_var.set("drag")  # 固定色 [240, 237, 105]
-check("K 白像素 -> tint 全255", app._corrected_color_from_rgb(255, 255, 255) == [255, 255, 255],
-      str(app._corrected_color_from_rgb(255, 255, 255)))
-check("K 黑像素 -> tint 全0", app._corrected_color_from_rgb(0, 0, 0) == [0, 0, 0],
-      str(app._corrected_color_from_rgb(0, 0, 0)))
-tint_mid = app._corrected_color_from_rgb(120, 120, 120)
+check("K 白像素 -> tint 全255", IMG._corrected_color_from_rgb(app, 255, 255, 255) == [255, 255, 255],
+      str(IMG._corrected_color_from_rgb(app, 255, 255, 255)))
+check("K 黑像素 -> tint 全0", IMG._corrected_color_from_rgb(app, 0, 0, 0) == [0, 0, 0],
+      str(IMG._corrected_color_from_rgb(app, 0, 0, 0)))
+tint_mid = IMG._corrected_color_from_rgb(app, 120, 120, 120)
 check("K 灰像素反推 [128,129,255]", tint_mid == [128, 129, 255], str(tint_mid))
 
 

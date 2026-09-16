@@ -22,7 +22,7 @@ import threading
 DEFAULT_LANGUAGE = "zh-CN"
 
 _lock = threading.RLock()
-_data = None
+_cache = {}
 _language = None
 
 
@@ -50,24 +50,69 @@ def language():
     return _language or os.environ.get("RPET_LANG") or DEFAULT_LANGUAGE
 
 
-def load(language_code=None):
-    """读取（或切换）语言文件，返回文案字典。已加载则直接复用。"""
-    global _data, _language
-    code = language_code or os.environ.get("RPET_LANG") or DEFAULT_LANGUAGE
+def set_language(code):
+    """切换界面语言（加载失败会抛错，由调用方处理）。"""
+    global _language
+    _read(code)
+    _language = code
+    return _language
+
+
+def available_languages():
+    """可用语言代码列表（assets/lang/*.json，默认语言排最前）。"""
+    codes = []
+    try:
+        from . import resources
+        directory = resources.LANG_DIR
+        if os.path.isdir(directory):
+            codes = sorted(f[:-5] for f in os.listdir(directory) if f.endswith(".json"))
+    except Exception:
+        codes = []
+    if DEFAULT_LANGUAGE in codes:
+        codes.remove(DEFAULT_LANGUAGE)
+        codes.insert(0, DEFAULT_LANGUAGE)
+    return codes or [DEFAULT_LANGUAGE]
+
+
+def language_display(code):
+    """语言的显示名（取语言文件里的 _meta.display_name）。"""
+    try:
+        meta = _dig(load(code), "_meta") or {}
+        return meta.get("display_name") or code
+    except Exception:
+        return code
+
+
+def function_title(index, name):
+    """功能显示名："序号. 名称"——序号由主程序按加载顺序生成，模组文件里不写序号。"""
+    return t("app.function_title_format", n=index, name=name)
+
+
+def _read(language_code):
+    """读取某个语言文件的文案字典（按语言代码缓存）。
+
+    只负责「读」，绝不改动当前语言 —— 否则像 language_display() 这种
+    「查另一个语言」的调用会把当前语言顺手改掉。
+    """
+    code = language_code or DEFAULT_LANGUAGE
     with _lock:
-        if _data is not None and _language == code:
-            return _data
+        if code in _cache:
+            return _cache[code]
         tried = _candidate_paths(code)
         for path in tried:
             if os.path.exists(path):
                 with open(path, "r", encoding="utf-8") as f:
-                    _data = json.load(f)
-                _language = code
-                return _data
+                    _cache[code] = json.load(f)
+                return _cache[code]
         raise RuntimeError(
             "未找到界面文案文件（{0}.json），已尝试：\n  {1}\n"
             "请确认 assets/lang 目录随程序一起分发/打包。".format(code, "\n  ".join(tried))
         )
+
+
+def load(language_code=None):
+    """返回指定语言（缺省为当前语言）的文案字典。只读，不改变当前语言。"""
+    return _read(language_code or language())
 
 
 def _dig(data, key):
@@ -79,13 +124,14 @@ def _dig(data, key):
     return node
 
 
-def t(key, **fmt):
-    """取一条文案；缺失时返回 key 本身（便于发现未翻译项）。"""
-    value = _dig(load(), key)
-    if value is None:
-        return key
+def t(text_key, **fmt):
+    """取一条文案；缺失时返回键名本身（便于发现未翻译项）。
+
+    参数名不叫 key，避免与文案里的 {key} 占位符冲突（如 dialogs.mod_options_failed）。
+    """
+    value = _dig(load(), text_key)
     if not isinstance(value, str):
-        return key
+        return text_key
     if fmt:
         try:
             return value.format(**fmt)

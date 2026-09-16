@@ -43,13 +43,13 @@ def make_midi(path):
 midi_path = os.path.join(BASE, "tests", "_test_req9.mid")
 make_midi(midi_path)
 app.midi_path_var.set(midi_path)
-out = app.func_extract_midi_bpm({})
+out = app.func_midi_bpm_extract({})
 check("A BPMList 键存在且无 midiPath", "BPMList" in out and "midiPath" not in out and "bpmChanges" not in out, str(list(out.keys())))
 check("A BPM 值 120", abs(out["BPMList"][0]["bpm"] - 120.0) < 0.01, str(out["BPMList"]))
 check("A startTime [0,0,1]", out["BPMList"][0]["startTime"] == [0, 0, 1], str(out["BPMList"][0]["startTime"]))
 
 # ---- 测试B: 自动调整音符宽度 -> size ----
-img_path = os.path.join(BASE, "assets", "images", "_test_img3x3.png")
+img_path = os.path.join(BASE, "tests", "images", "_test_img3x3.png")
 img = Image.new("RGB", (3, 3))
 px = img.load()
 for idx, c in enumerate([(255, 0, 0), (0, 255, 0), (0, 0, 255),
@@ -91,7 +91,7 @@ check("C 勾选后不翻转(顶部行最早)", first2["tint"] == [255, 0, 0], st
 app.flip_vertical_var.set(False)
 
 # ---- 测试D: 多透明度测试图片 ----
-alpha_path = os.path.join(BASE, "assets", "images", "_test_img_alpha.png")
+alpha_path = os.path.join(BASE, "tests", "images", "_test_img_alpha.png")
 with Image.open(alpha_path) as alpha_img:
     rgba = alpha_img.convert("RGBA")
     getter = getattr(rgba, "get_flattened_data", None)

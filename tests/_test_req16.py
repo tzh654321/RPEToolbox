@@ -9,6 +9,7 @@
   E 功能选择栏字号小于正文（8 个标签排得下）
   F 界面字体使用更纱黑体等宽（本机 Sarasa Fixed SC），字体规格用 "{家族} 字号" 形式
 """
+import io
 import os
 import shutil
 import sys
@@ -17,7 +18,15 @@ import tempfile
 BASE = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 sys.path.insert(0, BASE)
 
-_CFG_TMP = tempfile.mkdtemp(prefix="rpet_cfg16_")
+# 每个测试独立的固定配置目录：**只写不删**（删除动作会进回收站，弄脏用户回收站）
+# 每次运行都重写一份基线配置，避免上一次运行留下的主题/语言/禁用项影响本次结果。
+_CFG_TMP = os.path.join(tempfile.gettempdir(), "rpet_test_req16")
+os.makedirs(os.path.join(_CFG_TMP, "RPEToolbox"), exist_ok=True)
+os.environ["APPDATA"] = _CFG_TMP
+os.environ.pop("RPET_THEME", None)
+os.environ.pop("RPET_LANG", None)
+with io.open(os.path.join(_CFG_TMP, "RPEToolbox", "config.json"), "w", encoding="utf-8") as _f:
+    _f.write('{"theme": "light", "language": "zh-CN"}')
 _OLD_APPDATA = os.environ.get("APPDATA")
 os.environ["APPDATA"] = _CFG_TMP
 os.environ.pop("RPET_THEME", None)
@@ -28,7 +37,6 @@ def cleanup_config():
         os.environ.pop("APPDATA", None)
     else:
         os.environ["APPDATA"] = _OLD_APPDATA
-    shutil.rmtree(_CFG_TMP, ignore_errors=True)
 
 
 from rpe_toolbox import i18n, theme  # noqa: E402
@@ -67,8 +75,8 @@ try:
     # A 每页一套输入/按钮/输出
     # ==================================================================
     print("---- A 每页一套输入/按钮/输出 ----")
-    check("A 标签页数=功能数", ui.notebook.index("end") == len(funcs))
-    check("A 每页都有 IO 面板", len(ui.tab_io) == len(funcs), "%d vs %d" % (len(ui.tab_io), len(funcs)))
+    check("A 标签页数=功能数", ui.notebook.index("end") == len(ui.current_mods()))
+    check("A 每页都有 IO 面板", len(ui.tab_io) == len(ui.current_mods()), "%d vs %d" % (len(ui.tab_io), len(ui.current_mods())))
 
     keys = ui.tab_order
 
@@ -85,9 +93,9 @@ try:
             bad_buttons.append((k, sorted(buttons)))
     check("A 每页都有三个按钮", not bad_buttons, str(bad_buttons))
 
-    check("A 按钮总数 = 8 页 × 3", len(list(ui.all_buttons())) == len(funcs) * 3,
+    check("A 按钮总数 = 页数 × 3", len(list(ui.all_buttons())) == len(ui.current_mods()) * 3,
           str(len(list(ui.all_buttons()))))
-    check("A 文本区总数 = 8 页 × 2", len(list(ui.all_text_areas())) == len(funcs) * 2,
+    check("A 文本区总数 = 页数 × 2", len(list(ui.all_text_areas())) == len(ui.current_mods()) * 2,
           str(len(list(ui.all_text_areas()))))
 
     # 输入框显示与否：图片转音符画 / MIDI 两页不显示
@@ -101,12 +109,12 @@ try:
         else:
             shown.append(manager)
     check("A 图片/MIDI 页的输入框不显示", all(m == "" for m in hidden), str(hidden))
-    check("A 其余页显示输入框", all(m == "pack" for m in shown), str(shown))
+    check("A 其余页显示输入框", all(m in ("pack", "grid") for m in shown), str(shown))
 
     # 按当前页取控件
-    ui.current_function.set(funcs[0]["name"]); ui.on_function_change(); root.update_idletasks()
+    ui.current_function.set(ui.function_names[0]); ui.on_function_change(); root.update_idletasks()
     first_in = ui.text_input
-    ui.current_function.set(funcs[1]["name"]); ui.on_function_change(); root.update_idletasks()
+    ui.current_function.set(ui.function_names[1]); ui.on_function_change(); root.update_idletasks()
     check("B text_input 指向当前页", ui.text_input is not first_in and ui.text_input is ui.tab_io["nonlinear_split"]["text_input"],
           str(ui.text_input))
 
@@ -115,13 +123,13 @@ try:
     # ==================================================================
     print("---- B 各页输入输出独立 ----")
     # 第 1 页写入输入/输出
-    ui.current_function.set(funcs[0]["name"]); ui.on_function_change(); root.update_idletasks()
+    ui.current_function.set(ui.function_names[0]); ui.on_function_change(); root.update_idletasks()
     ui.text_input.delete("1.0", tk.END)
     ui.text_input.insert("1.0", '{"page": 1}')
     ui.text_output.insert("1.0", "out1")
 
     # 切到第 2 页：应当是干净的，且各自写入
-    ui.current_function.set(funcs[1]["name"]); ui.on_function_change(); root.update_idletasks()
+    ui.current_function.set(ui.function_names[1]); ui.on_function_change(); root.update_idletasks()
     check("B 切页后输入框内容不串页", ui.text_input.get("1.0", tk.END).strip() != '{"page": 1}',
           repr(ui.text_input.get("1.0", tk.END).strip()))
     check("B 输出框也各页独立", ui.text_output.get("1.0", tk.END).strip() == "",
@@ -130,7 +138,7 @@ try:
     ui.text_output.insert("1.0", "out2")
 
     # 切回第 1 页：内容仍在
-    ui.current_function.set(funcs[0]["name"]); ui.on_function_change(); root.update_idletasks()
+    ui.current_function.set(ui.function_names[0]); ui.on_function_change(); root.update_idletasks()
     check("B 切回原页内容仍在", ui.text_input.get("1.0", tk.END).strip() == '{"page": 1}',
           repr(ui.text_input.get("1.0", tk.END).strip()))
     check("B 切回后输出框内容仍在", ui.text_output.get("1.0", tk.END).strip() == "out1",
@@ -140,14 +148,14 @@ try:
     ui.clear_io()
     check("B 清空只清当前页", ui.text_output.get("1.0", tk.END).strip() == ""
           and ui.text_input.get("1.0", tk.END).strip() == "")
-    ui.current_function.set(funcs[1]["name"]); ui.on_function_change(); root.update_idletasks()
+    ui.current_function.set(ui.function_names[1]); ui.on_function_change(); root.update_idletasks()
     check("B 清空不影响其它页", ui.text_input.get("1.0", tk.END).strip() == '{"page": 2}'
           and ui.text_output.get("1.0", tk.END).strip() == "out2",
           repr(ui.text_input.get("1.0", tk.END).strip()) + " / " + repr(ui.text_output.get("1.0", tk.END).strip()))
     ui.clear_io()
 
     # 转换功能在当前页生效
-    ui.current_function.set(funcs[0]["name"]); ui.on_function_change(); root.update_idletasks()
+    ui.current_function.set(ui.function_names[0]); ui.on_function_change(); root.update_idletasks()
     ui.text_input.insert("1.0", '{"notes": [{"type": 2, "startTime": [1,0,1], "endTime": [1,0,1], "positionX": 0},'
                                 ' {"type": 1, "startTime": [2,0,1], "endTime": [2,0,1], "positionX": 0}]}')
     ui.process_data()
@@ -162,20 +170,24 @@ try:
     print("---- C 页内顺序 ----")
     for key in ("hold_notes_connect", "nonlinear_split", "event_type_convert"):
         tab = ui.tab_frames[key]
-        slaves = tab.pack_slaves()
         panel = ui.tab_io[key]
-        order = []
-        for w in slaves:
-            if w is panel.get("input_frame"):
-                order.append("input")
-            elif w is panel.get("frame_btn"):
-                order.append("buttons")
-            elif w is panel.get("output_frame"):
-                order.append("output")
-            else:
-                order.append("options")
-        check("C %s 页内顺序 = 选项→输入→按钮→输出" % key,
-              order == ["options", "input", "buttons", "output"], str(order))
+        holder = panel["input_frame"].master
+        # 选项控件直接挂在标签页上；输入/按钮/输出三块在同一个 grid 容器里（为了输入输出框等高）
+        order = ["io" if w is holder else "options" for w in tab.pack_slaves()]
+        check("C %s 页内顺序 = 选项 → 输入→按钮→输出" % key,
+              order[-1] == "io" and order.count("io") == 1, str(order))
+
+        check("C %s 输入/按钮/输出在同一容器内" % key,
+              panel["frame_btn"].master is holder and panel["output_frame"].master is holder,
+              "%s / %s" % (panel["frame_btn"].master, panel["output_frame"].master))
+        rows = (int(panel["input_frame"].grid_info().get("row", -1)),
+                int(panel["frame_btn"].grid_info().get("row", -1)),
+                int(panel["output_frame"].grid_info().get("row", -1)))
+        check("C %s 行号依次为 输入→按钮→输出" % key, rows[0] < rows[1] < rows[2], str(rows))
+        check("C %s 输入框与输出框等权（等高）" % key,
+              holder.rowconfigure(rows[0])["weight"] == holder.rowconfigure(rows[2])["weight"]
+              and holder.rowconfigure(rows[0])["uniform"] == holder.rowconfigure(rows[2])["uniform"],
+              str(holder.rowconfigure(rows[0])) + " vs " + str(holder.rowconfigure(rows[2])))
 
     # ==================================================================
     # D 圆角 + 聚焦蓝线

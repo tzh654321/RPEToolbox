@@ -5,6 +5,12 @@
 """
 
 import math
+from fractions import Fraction
+
+# 时间数组 [a, b, c] 表示 a + b/c。分母上限：
+# 常规编辑用不到 192 以上，但「纵连音高」会按音高频率把音符排成很密的纵连
+# （例如 120bpm 下 A4 的间隔是 1/220 拍），所以放宽到 4096 才能精确表示。
+MAX_TIME_DENOMINATOR = 4096
 
 
 class EasingMixin:
@@ -15,23 +21,21 @@ class EasingMixin:
         return float(t_arr)
 
     def float_to_time(self, val):
-        # 输出 [a, b, c] 格式：整数拍 + 分母 <= 192 的最简分数表示
+        # 输出 [a, b, c] 格式：整数拍 + 分母 <= MAX_TIME_DENOMINATOR 的最接近分数
         beat = int(val)
         remainder = val - beat
         if abs(remainder) < 1e-6:
             return [beat, 0, 1]
 
-        best_b, best_c = 1, 1
-        min_diff = 1.0
-        for c in range(1, 193):
-            b = round(remainder * c)
-            diff = abs(b / c - remainder)
-            if diff < min_diff:
-                min_diff = diff
-                best_b, best_c = b, c
-                if diff < 1e-6:
-                    break
-
+        # Fraction.limit_denominator 就是「分母不超过上限的最接近分数」，
+        # 与原先穷举 1..192 的目标一致，但 O(log) 而不是 O(分母)。
+        frac = Fraction(remainder).limit_denominator(MAX_TIME_DENOMINATOR)
+        best_b, best_c = frac.numerator, frac.denominator
+        if best_b == 0:
+            return [beat, 0, 1]
+        # 借位：b/c 可能等于 1（remainder 接近 1）
+        if best_b >= best_c:
+            return [beat + 1, 0, 1]
         return [beat, best_b, best_c]
 
     def cubic_bezier(self, t, x1, y1, x2, y2):

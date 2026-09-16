@@ -16,7 +16,6 @@ PROJECT_ROOT = _project_root()
 ASSETS_DIR = os.path.join(PROJECT_ROOT, "assets")
 AUDIO_DIR = os.path.join(ASSETS_DIR, "audio")
 ICONS_DIR = os.path.join(ASSETS_DIR, "icons")
-IMAGES_DIR = os.path.join(ASSETS_DIR, "images")
 LANG_DIR = os.path.join(ASSETS_DIR, "lang")
 
 
@@ -34,6 +33,19 @@ def user_config_path():
     """用户配置（主题等）存放位置：%APPDATA%/RPEToolbox/config.json，无 APPDATA 时放到用户目录。"""
     base = os.environ.get("APPDATA") or os.path.expanduser("~")
     return os.path.join(base, "RPEToolbox", "config.json")
+
+
+def user_cache_dir():
+    """用户级缓存目录：%APPDATA%/RPEToolbox/cache。
+
+    放「需要持久存在、绝不在运行时删除」的派生文件（如由 PNG 转换出的 .ico）。
+    与配置文件同一个基目录，便于测试重定向 APPDATA 时一并隔离。
+
+    之所以不用 %TEMP%：临时文件用完即删，而删除动作在带「安全删除」的机器上会把文件
+    丢进回收站——每次启动都留 2 个 .ico 的痕迹，用户会看到回收站被项目文件灌满。
+    """
+    base = os.environ.get("APPDATA") or os.path.expanduser("~")
+    return os.path.join(base, "RPEToolbox", "cache")
 
 
 def find_icon():

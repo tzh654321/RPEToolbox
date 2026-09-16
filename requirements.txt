@@ -1,0 +1,22 @@
+# RPEToolbox 依赖
+#
+# 运行：python RPET.py
+# 打包：assets/（含 lang、audio、icons）必须随 exe 一起带上。
+#
+# 说明：界面用 Tkinter（标准库，无需安装）；音效在 Windows 上用标准库 winsound，
+#       因此 pygame 仅作为非 Windows 平台的兜底。
+
+# ── 必需 ────────────────────────────────────────────────
+Pillow>=9.0
+
+# ── 可选：界面外观（缺失时静默降级为系统默认外观） ──────────
+sv-ttk>=2.6
+
+# ── 可选：非 Windows 平台的音效播放 ──────────────────────
+# Windows 上音效走 winsound，不装 pygame 也能出声；
+# 只有非 Windows 环境才需要它。
+pygame>=2.5; sys_platform != "win32"
+
+# ── 可选：Windows 标题栏跟随深/浅色 ─────────────────────
+# 缺失时程序会静默降级，不影响其它功能。
+pywinstyles>=1.8; sys_platform == "win32"

@@ -1,0 +1,256 @@
+{
+  "_readme": {
+    "purpose": "本文件只存放界面文字，不含任何代码逻辑。程序通过 rpe_toolbox/i18n.py 读取本文件。",
+    "how_to_add_language": "复制本文件为同目录下的 <语言代码>.json（如 en-US.json），翻译各字段的值后，用环境变量 RPET_LANG=<语言代码> 启动即可。键名（key）请勿修改。",
+    "placeholders": "含 {name} 形式占位符的文字由程序填充，翻译时请保留占位符本身。",
+    "options_structure": "options 下的每一项都是「内部键: 显示文字」，内部键决定程序行为、不可修改，显示文字可自由翻译。",
+    "functions_structure": "functions maps a feature key to its texts: key is bound to program behavior and must not be changed; tab is the short label on the tab strip, name is the full name, desc is the one-line description shown on top. Tab order comes from each module's MOD_ORDER, not from the order of this array."
+  },
+
+  "app": {
+    "title": "rpe toolbox",
+    "error_prefix": "[Error] ",
+    "function_title_format": "{n}. {name}"
+  },
+
+  "functions": [
+    {
+      "key": "hold_notes_connect",
+      "tab": "Connect",
+      "name": "Hold/event head-to-tail connect",
+      "desc": "Set the endTime of a hold note or event to the next distinct startTime (simultaneous notes share the next time; the last hold is skipped)."
+    },
+    {
+      "key": "nonlinear_split",
+      "tab": "Split",
+      "name": "Nonlinear event splitting",
+      "desc": "Split events by the given density, handling easing edges and bezier control points."
+    },
+    {
+      "key": "polar_conversion",
+      "tab": "Polar",
+      "name": "Polar coordinate conversion",
+      "desc": "Treat the distance from the origin as r and the rotation angle as theta, then convert back to cartesian; rotation events are copied as-is."
+    },
+    {
+      "key": "event_type_convert",
+      "tab": "Type",
+      "name": "Event type conversion",
+      "desc": "Change the kind of events, including X/Y scaling options."
+    },
+    {
+      "key": "image_to_notes",
+      "tab": "Note art",
+      "name": "Image to note art generator",
+      "desc": "Generate note art from an image (JPG/PNG supported)."
+    },
+    {
+      "key": "time_interval_to_yoffset",
+      "tab": "yOffset",
+      "name": "Time interval to yOffset",
+      "desc": "Turn note time intervals and scroll speed into yOffset."
+    },
+    {
+      "key": "reverse_data",
+      "tab": "Reverse",
+      "name": "Reverse / time stretch",
+      "desc": "Stretch or compress note and event times by a ratio; a negative ratio reverses them."
+    },
+    {
+      "key": "midi_bpm_extract",
+      "tab": "BPM",
+      "name": "MIDI BPM change extraction",
+      "desc": "Extract the list of BPM changes from a MIDI file."
+    },
+    {
+      "key": "vertical_pitch",
+      "tab": "Pitch",
+      "name": "Vertical chain pitch",
+      "desc": "Give each note a pitch and turn it into a vertical chain; the chain length of a hold is derived from BPM and pitch, so the chart plays a melody."
+    },
+    {
+      "key": "score_cut_merge",
+      "tab": "Cut/merge",
+      "name": "Full-score cut & merge",
+      "desc": "Cut and merge a full score by range and export a pez file (calls the external RPE Event Cutter)."
+    }
+  ],
+
+  "labels": {
+    "input_json": "Input JSON:",
+    "output_json": "Output JSON:",
+    "density": "Split density / note interval (divisions):",
+    "allow_shorten": "Allow shortening",
+    "distinguish_track": "Distinguish tracks",
+    "image_path": "Image file path:",
+    "note_type": "Note type:",
+    "color_mode": "Color handling:",
+    "legacy_tint": "Legacy tint",
+    "note_interval": "Note interval (divisions):",
+    "flip_horizontal": "Flip horizontally",
+    "flip_vertical": "Flip vertically",
+    "rotation": "Rotation:",
+    "use_original_size": "Use original image size",
+    "pixel_width": "Width (px):",
+    "pixel_height": "Height (px):",
+    "lock_aspect": "Lock aspect ratio",
+    "auto_adjust_width": "Auto adjust note width",
+    "note_width": "Note width:",
+    "speed": "Scroll speed:",
+    "bpm": "曲速 (bpm):",
+    "unify_start_time": "Unify start time",
+    "midi_path": "MIDI file path:",
+    "stretch_ratio": "Stretch ratio:",
+    "stretch_ratio_hint": "(negative = reversed, default -1)",
+    "drag_interval": "Note interval (divisions)",
+    "hold_track": "Lane hold",
+    "drag_curve": "Curve drag",
+    "arrow": "→",
+    "dark_mode": "Dark mode",
+    "fill_note": "Fill note",
+    "fill_same_as_input": "Same as input",
+    "preview": "Preview",
+    "pitch_hint": "(left-click a note to set pitch; right-click a hold for its end pitch, others for count; 0 = single key)",
+    "note_count": "Count",
+    "glide": "Glide",
+    "input_path": "Input (zip/pez/folder):",
+    "output_path": "Output pez:",
+    "browse_input": "Choose input",
+    "browse_output": "Choose output",
+    "cutter_missing": "RPE Event Cutter not found at {path}.",
+    "no_notes": "(paste input JSON to show notes here)",
+    "pitch_title": "Pitch",
+    "glide_tail": "Glide end pitch",
+    "auto_count_hint": "The count of a hold is derived from BPM and pitch; no manual input",
+    "count_box_hint": "Type the note count; Enter or click elsewhere to save (Esc cancels)",
+    "glide_tail_hint": "Type an end pitch (e.g. E5) to make it a glide; leave empty for a non-glide (Enter/click away to save)",
+    "fixed_invalid_end": "{n} note(s) had endTime earlier than startTime; fixed as zero-length"
+  },
+
+  "buttons": {
+    "convert": "Convert",
+    "copy": "Copy result",
+    "clear": "Clear input/output",
+    "browse_image": "Choose image",
+    "browse_midi": "Choose MIDI",
+    "preview": "Preview",
+    "refresh": "Refresh view"
+  },
+
+  "options": {
+    "note_type": {
+      "tap": "tap",
+      "drag": "drag",
+      "flick": "flick",
+      "hold": "hold"
+    },
+    "color_mode": {
+      "tint": "Tint",
+      "corrected_tint": "Corrected tint",
+      "alpha_as_luma": "Alpha as luma"
+    },
+    "rotation": {
+      "0": "0°",
+      "90": "90°",
+      "180": "180°",
+      "270": "270°"
+    },
+    "event_type": {
+      "1": "Move X",
+      "2": "Move Y",
+      "3": "Rotate",
+      "4": "Alpha",
+      "5": "Speed",
+      "6": "Scale X",
+      "7": "Scale Y"
+    },
+    "hold_mode": {
+      "none": "None",
+      "5k": "5k (normal events)",
+      "7k": "7k (with scaling)"
+    },
+    "drag_mode": {
+      "none": "None",
+      "x": "Move & scale X",
+      "y": "Move & scale Y"
+    }
+  },
+
+  "dialogs": {
+    "tip_title": "Notice",
+    "no_result_to_copy": "No valid result to copy",
+    "choose_image_title": "Choose image",
+    "choose_midi_title": "Choose MIDI",
+    "filter_image": "Image files",
+    "filter_midi": "MIDI files",
+    "filter_all": "All files",
+    "about_title": "About",
+    "about_text": "rpe toolbox - helps chart editing through Re:Phiedit clipboard import/export.\n\nFeatures live as mods under rpe_toolbox/mods/ and are grouped into tabs; all UI text is in assets/lang/ and can be translated.\n\nVersion: {version}",
+    "mod_options_failed": "Options UI of mod {key} failed to build; the function still works.",
+    "func_help_title": "How to use - {name}",
+    "func_help_missing": "No detailed help for \"{name}\" yet.",
+    "close": "Close"
+  },
+
+  "errors": {
+    "input_empty": "输入为空",
+    "json_format": "JSON格式错误: {err}",
+    "unknown_function": "未知功能",
+    "speed_bpm_number": "流速 / bpm 必须为数字",
+    "bpm_positive": "bpm 必须大于 0",
+    "drag_interval_int": "音符间隔必须为整数",
+    "drag_interval_positive": "音符间隔必须大于 0",
+    "pixel_size_int": "x像素数 / y像素数必须为整数",
+    "pillow_missing": "缺少 Pillow 依赖，请先安装 pillow",
+    "image_invalid": "请选择有效图片文件",
+    "density_positive": "切割密度必须大于 0",
+    "image_read_failed": "无法读取图片: {err}",
+    "rotation_invalid": "旋转度数必须为 0/90/180/270",
+    "image_size_invalid": "图片尺寸无效",
+    "note_width_number": "音符宽度必须为数字",
+    "stretch_ratio_number": "拉伸比例必须为数字",
+    "stretch_ratio_zero": "拉伸比例不能为 0",
+    "midi_incomplete": "MIDI 数据不完整",
+    "midi_invalid": "请选择有效 MIDI 文件",
+    "midi_not_standard": "不是标准 MIDI 文件",
+    "midi_too_short": "MIDI 文件过短",
+    "midi_resolution_invalid": "MIDI 分辨率无效",
+    "midi_running_status_missing": "MIDI 运行状态缺失",
+    "midi_no_bpm": "未在 MIDI 中找到 BPM 变化"
+  },
+
+  "_meta": {
+    "language": "en-US",
+    "display_name": "English"
+  },
+
+  "menu": {
+    "function": "Function",
+    "switch_group": "Switch group",
+    "view": "View",
+    "dark_mode": "Dark mode",
+    "language": "Language",
+    "about": "About",
+    "enable": "Enable",
+    "help": "Help",
+    "func_help": "How to use: {name}",
+    "back": "Back"
+  },
+
+  "status": {
+    "converting": "Converting..."
+  },
+
+  "help": {
+    "hold_notes_connect": "[What] Sets the endTime of a hold (or event) to the next distinct note/event startTime so that long notes / events connect head-to-tail (simultaneous notes share the next time; the last one is skipped).\n\n[Options]\n- Allow length shorten: default off = only lengthen, never shorten. When on, \"next note startTime\" is searched from this note's own startTime, so a hold may become shorter.\n- Distinguish tracks: default off = process all notes in time order. When on, each track is handled separately (0->1, 1->4, 2->3); simultaneous notes share the next time, the last stays.\n\n[Usage] Paste notes, press Convert, read the result from the output JSON.",
+    "nonlinear_split": "[What] Splits events by a given density, easing edges and bezier control points handled automatically.\n\n[Options]\n- Cut density / note interval (subdivisions): one segment per subdivision, larger = denser (e.g. 4 = one segment per 1/4 beat).\n\n[Usage] Paste events, set the density, Convert.",
+    "polar_conversion": "[What] Uses the distance from the origin as r and the rotation angle as theta, then converts back to cartesian; rotation events are copied as-is. Good for circles and spirals.\n\n[Options]\n- Cut density / note interval (subdivisions): one point per subdivision, larger = smoother circle.\n\n[Usage] Paste (X,Y) events, set the density, Convert.",
+    "event_type_convert": "[What] Changes the kind of events, including X/Y scaling.\n\n[Options]\n- Locked-track hold: none / 5k(normal events) / 7k(including scaling) - how a hold is written as events.\n- Curved drag: none / X offset & scaling / Y offset & scaling - split offset & scaling into a series of drags.\n- Note interval (subdivisions): only shown when curved drag is not \"none\"; controls the density.\n\n[Usage] Paste events, pick options, Convert (choose the arrow to mirror one property into another).",
+    "image_to_notes": "[What] Generates note art from an image: one pixel becomes one note; fully transparent pixels are skipped.\n\n[Options]\n- Image path: the JPG/PNG to convert.\n- Note type: tap / drag / flick / hold (used for the whole image).\n- Color mode: tint / corrected tint / alpha-as-brightness. \"Corrected tint\" derives the color from the main colors of tap/drag/flick/hold (#0AC3FF #F0ED69 #FE4365 #9AE8FD) so that multiply blending matches the original hue (white becomes the brightest desaturated grey). \"Alpha as brightness\" hides the legacy tint label.\n- Flip horizontal / flip vertical / rotation: adjust the orientation.\n- Use original size: ignore the two fields below and use the image pixel count directly.\n- x pixels / y pixels / lock aspect ratio: set the resulting rows and columns manually.\n- Auto note width: computes (675*2/pixel count/175) so all notes fit evenly inside +/-675.\n- Note width: default 175 (screen width 1350, 175 per note at scale 1.0).\n\n[Usage] Pick an image, adjust, Convert.",
+    "time_interval_to_yoffset": "[What] Converts note time intervals plus scroll speed into yOffset (for 3D/depth effects).\n\n[Options]\n- BPM: keep it the same as the chart; used to convert time.\n- Speed: larger value = larger yOffset for the same interval.\n- Unify start time: when on, all notes start at the same time.\n\n[Usage] Paste notes, set the speed, Convert.",
+    "reverse_data": "[What] Stretches or compresses note and event times by a ratio; a negative ratio also reverses them.\n\n[Options]\n- Stretch ratio: 2 doubles the length, 0.5 halves it, -1 reverses at the original speed.\n\n[Usage] Paste JSON, set the ratio, Convert.",
+    "midi_bpm_extract": "[What] Extracts the list of BPM changes from a MIDI file.\n\n[Options]\n- MIDI path: pick a .mid file (or press \"Pick MIDI\").\n\n[Usage] Pick a file, Convert; the output JSON lists each BPM with its start beat.",
+    "vertical_pitch": "[What] When the same sound is repeated at high frequency, the ear hears the repetition rate as a pitch. This tool turns one key into a vertical chain (same x, spread along the time axis); while playing, the chain triggers at the given rate so you hear that pitch - give each key a different pitch and the chart plays a melody.\n\n[Options]\n- BPM: keep it the same as the chart; used to convert beats to seconds.\n- Fill note type: tap/drag/flick/hold/same as input (default) - the type of the generated notes.\n- Preview: synthesizes the whole passage with a sawtooth wave and plays it; a playback progress line is drawn on the canvas.\n- Refresh view: redraws the canvas from the current input JSON.\n\n[Count rules]\n- Unit note length = 1 / pitch frequency (to hear that pitch you must repeat at that interval); pitch 0 (single key) falls back to a 16th note (60/bpm/4).\n- Hold: count = duration x frequency, derived from BPM and pitch, not editable by hand; the pieces connect head-to-tail.\n- Glide (pitch A->B): the repetition rate changes linearly, total = duration x (fA+fB)/2 and each time is solved from the integral of f, so the chain gets denser or sparser.\n- Other notes: the count is manual; the first note stays in place and the rest follow one unit apart.\n\n[Usage] Left-click a note to set pitch; right-click a hold for its end pitch, others for count; 0 = single key. The editor is embedded in the canvas with the caret placed there; Enter or clicking elsewhere saves, Esc cancels.\n- Canvas: earlier time at the bottom, later on top; horizontal axis is the x coordinate (+/-675, note width 175), the time grid is in beats with one spare beat above and below; mouse wheel scrolls time, Ctrl+wheel zooms time.\n\n[Audio] The preview uses a sawtooth wave (richest harmonics, easiest to hear the pitch); glides are rendered with a linear pitch change.",
+    "score_cut_merge": "[What] Cuts and merges a full score by range and exports a pez file (currently calls the external RPE Event Cutter; will be rewritten in Python later).\n\n[Options]\n- Input (zip/pez/folder): the score to process.\n- Output pez: where the result is saved.\n\n[Usage] Pick input and output, Convert."
+  }
+}

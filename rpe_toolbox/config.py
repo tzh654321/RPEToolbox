@@ -52,3 +52,20 @@ def save_theme(name):
     config = load_config()
     config["theme"] = theme.normalize(name)
     return save_config(config)
+
+
+def load_setting(key, default=None):
+    """读取一项界面设置（功能组 / 语言 / 禁用的模组等）。"""
+    return load_config().get(key, default)
+
+
+def save_setting(key, value):
+    """写入一项界面设置。"""
+    config = load_config()
+    config[key] = value
+    return save_config(config)
+
+
+def resolve_language(default="zh-CN"):
+    """启动语言：环境变量 RPET_LANG > 配置 > 默认。"""
+    return os.environ.get("RPET_LANG") or load_config().get("language") or default

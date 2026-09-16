@@ -35,7 +35,7 @@ def near(a, b, eps=1e-6):
 
 
 # ---- 测试F: 图片转音符画 16分音、高度4 -> 行间隔 1/4 拍 ----
-img_path = os.path.join(BASE, "assets", "images", "_test_req11_img.png")
+img_path = os.path.join(BASE, "tests", "images", "_test_req11_img.png")
 img = Image.new("RGB", (3, 4))
 for y in range(4):
     for x in range(3):

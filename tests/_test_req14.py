@@ -23,7 +23,15 @@ sys.path.insert(0, BASE)
 
 # 隔离用户配置：主题切换会写 %APPDATA%/RPEToolbox/config.json，测试期间重定向到临时目录，
 # 结束时还原，避免污染本机真实配置（否则下次启动会继承测试选择的主题）。
-_CFG_TMP = tempfile.mkdtemp(prefix="rpet_cfg_")
+# 每个测试独立的固定配置目录：**只写不删**（删除动作会进回收站，弄脏用户回收站）
+# 每次运行都重写一份基线配置，避免上一次运行留下的主题/语言/禁用项影响本次结果。
+_CFG_TMP = os.path.join(tempfile.gettempdir(), "rpet_test_req14")
+os.makedirs(os.path.join(_CFG_TMP, "RPEToolbox"), exist_ok=True)
+os.environ["APPDATA"] = _CFG_TMP
+os.environ.pop("RPET_THEME", None)
+os.environ.pop("RPET_LANG", None)
+with io.open(os.path.join(_CFG_TMP, "RPEToolbox", "config.json"), "w", encoding="utf-8") as _f:
+    _f.write('{"theme": "light", "language": "zh-CN"}')
 _OLD_APPDATA = os.environ.get("APPDATA")
 os.environ["APPDATA"] = _CFG_TMP
 
@@ -33,10 +41,9 @@ def cleanup_config():
         os.environ.pop("APPDATA", None)
     else:
         os.environ["APPDATA"] = _OLD_APPDATA
-    shutil.rmtree(_CFG_TMP, ignore_errors=True)
 
 
-from rpe_toolbox import config, dpi, i18n, resources, theme  # noqa: E402
+from rpe_toolbox import config, dpi, i18n, mods_loader, resources, theme  # noqa: E402
 from rpe_toolbox.core import FunctionMixin  # noqa: E402
 
 ok = 0
@@ -129,7 +136,16 @@ check("B 未知键降级为键名", i18n.t("not.exists.key") == "not.exists.key"
 check("B 错误前缀", i18n.t("app.error_prefix").startswith("【错误】"), i18n.t("app.error_prefix"))
 
 funcs = i18n.function_list()
-check("B 功能列表 8 项", len(funcs) == 8, "got %d" % len(funcs))
+_mod_keys = {m.key for m in mods_loader.all_mods()}
+check("B 功能列表与模组数一致", len(funcs) == len(_mod_keys),
+      "文案 %d 项 / 模组 %d 个" % (len(funcs), len(_mod_keys)))
+check("B 每个模组都有语言条目",
+      {f["key"] for f in funcs} == _mod_keys,
+      "缺 %s / 多 %s" % (sorted(_mod_keys - {f["key"] for f in funcs}),
+                         sorted({f["key"] for f in funcs} - _mod_keys)))
+check("B 功能均有 tab 短标签与简介",
+      all(f.get("tab") and f.get("name") and f.get("desc") for f in funcs),
+      str([f.get("key") for f in funcs if not (f.get("tab") and f.get("desc"))]))
 check("B 功能 key 唯一且非空",
       len({f["key"] for f in funcs}) == len(funcs) and all(f.get("key") for f in funcs))
 check("B 功能均有名称与说明", all(f.get("name") and f.get("desc") for f in funcs))
@@ -304,7 +320,20 @@ try:
     ui.dark_mode_var.set(False)
     check("F 切回浅色", ui.theme_name == "light" and ui.text_input.cget("bg") == light_bg)
     check("F 主题选择已持久化到配置", config.load_config().get("theme") == "light", str(config.load_config()))
-    check("F 主题开关与勾选框状态同步", ui.dark_mode_check.cget("text") == i18n.t("labels.dark_mode"))
+    # 第十五轮起深色模式开关移入菜单栏（视图 → 深色模式）
+    _labels = []
+    for _menu in getattr(ui, "_all_menus", []):
+        try:
+            for _i in range(_menu.index("end") + 1):
+                if _menu.type(_i) in ("checkbutton", "radiobutton", "cascade", "command"):
+                    _labels.append(str(_menu.entrycget(_i, "label")).lstrip("\u2714 "))
+        except Exception:
+            pass
+    check("F 深色模式在菜单中且文案取自语言文件",
+          i18n.t("menu.dark_mode") in _labels, str(_labels))
+    check("F 主题值与菜单勾选状态一致",
+          bool(ui.dark_mode_var.get()) == (ui.theme_name == "dark"),
+          "%s / %s" % (ui.dark_mode_var.get(), ui.theme_name))
     check("F 定轨hold默认显示文字为“无”",
           ui.hold_mode_var.get() == i18n.option_display("hold_mode", "none"), ui.hold_mode_var.get())
     check("F UI 内部键解析：曲线drag默认 none",

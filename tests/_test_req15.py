@@ -9,6 +9,7 @@
   E 输入框与背景拉开对比（底色不同 + 描边）
   F pywinstyles 标题栏：缺失时静默降级，存在时按主题走 light/dark
 """
+import io
 import os
 import shutil
 import sys
@@ -18,7 +19,15 @@ BASE = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 sys.path.insert(0, BASE)
 
 # 隔离用户配置：主题切换会写 %APPDATA%/RPEToolbox/config.json
-_CFG_TMP = tempfile.mkdtemp(prefix="rpet_cfg15_")
+# 每个测试独立的固定配置目录：**只写不删**（删除动作会进回收站，弄脏用户回收站）
+# 每次运行都重写一份基线配置，避免上一次运行留下的主题/语言/禁用项影响本次结果。
+_CFG_TMP = os.path.join(tempfile.gettempdir(), "rpet_test_req15")
+os.makedirs(os.path.join(_CFG_TMP, "RPEToolbox"), exist_ok=True)
+os.environ["APPDATA"] = _CFG_TMP
+os.environ.pop("RPET_THEME", None)
+os.environ.pop("RPET_LANG", None)
+with io.open(os.path.join(_CFG_TMP, "RPEToolbox", "config.json"), "w", encoding="utf-8") as _f:
+    _f.write('{"theme": "light", "language": "zh-CN"}')
 _OLD_APPDATA = os.environ.get("APPDATA")
 os.environ["APPDATA"] = _CFG_TMP
 os.environ.pop("RPET_THEME", None)
@@ -29,7 +38,6 @@ def cleanup_config():
         os.environ.pop("APPDATA", None)
     else:
         os.environ["APPDATA"] = _OLD_APPDATA
-    shutil.rmtree(_CFG_TMP, ignore_errors=True)
 
 
 from rpe_toolbox import i18n, theme  # noqa: E402
@@ -74,31 +82,48 @@ try:
     print("---- A Notebook 功能切换 ----")
     check("A 存在 Notebook", ui.notebook.winfo_class() in ("TNotebook", "Notebook"),
           ui.notebook.winfo_class())
-    check("A 标签页数量与功能数一致", ui.notebook.index("end") == len(funcs),
-          "%s vs %s" % (ui.notebook.index("end"), len(funcs)))
+
+    # 模组化后：标签页 = 当前功能组里启用的模组（顺序由各模组 MOD_ORDER 决定）
+    mods = ui.current_mods()
+    check("A 标签页数量与功能数一致", ui.notebook.index("end") == len(mods),
+          "%s vs %s" % (ui.notebook.index("end"), len(mods)))
 
     tabs = [ui.notebook.tab(i, "text") for i in range(ui.notebook.index("end"))]
-    expect = [f.get("tab") for f in funcs]
+    expect = []
+    for mod in mods:
+        item = i18n.function_by_key(mod.key) or {}
+        expect.append(item.get("tab") or item.get("name") or mod.key)
     check("A 标签文字取自语言文件 tab 键", tabs == expect, "%s != %s" % (tabs, expect))
-    check("A 每个功能都有非空 tab 标签", all(f.get("tab") for f in funcs), str(tabs))
+    check("A 每个功能都有非空 tab 标签", all(expect), str(tabs))
+
+    # 界面里的功能标识是「序号. 名称」，来自 app.function_names
+    check("A function_names 与标签页一一对应",
+          len(ui.function_names) == len(mods) and all(ui.function_names), str(ui.function_names))
 
     # current_function -> 标签页
-    for index, item in enumerate(funcs):
-        ui.current_function.set(item["name"])
+    for index, title in enumerate(ui.function_names):
+        ui.current_function.set(title)
         ui.on_function_change()
         root.update_idletasks()
         selected = ui.notebook.index("current")
         check("A 选中功能%d 时切到对应标签页" % (index + 1), selected == index,
               "selected=%s expect=%s" % (selected, index))
 
+    # 兼容只有名称（不带序号）的写法：也应能定位到同一个模组
+    plain = i18n.function_by_key(ui.tab_order[0])["name"]
+    check("A 不带序号的名称也能解析到模组",
+          ui._resolve_function(plain)[0] == ui.tab_order[0],
+          "%s -> %s" % (plain, ui._resolve_function(plain)[0]))
+
     # 标签页 -> current_function
     ui.notebook.select(4)
     ui.notebook.event_generate("<<NotebookTabChanged>>")
     root.update()
     check("A 点击标签页同步 current_function",
-          ui.current_function.get() == funcs[4]["name"], ui.current_function.get())
+          ui.current_function.get() == ui.function_names[4], ui.current_function.get())
     check("A 切换后简介同步",
-          ui.desc_label.cget("text") == funcs[4]["desc"], ui.desc_label.cget("text")[:40])
+          ui.status_label.cget("text") == (i18n.function_by_key(ui.tab_order[4]) or {}).get("desc"),
+          ui.status_label.cget("text")[:40])
 
     # 各功能的选项控件确实在对应标签页内
     parents = {
@@ -111,18 +136,32 @@ try:
     }
     misplaced = [k for k, w in parents.items() if w.winfo_parent() != str(ui.tab_frames[k])]
     check("A 选项控件挂在对应标签页内", not misplaced, str(misplaced))
+    # 模组化后「切割密度」由 shared.density_row() 建，各页各一份、共用同一个变量
+    def widgets_with_var(parent, var):
+        found = []
+        for child in parent.winfo_children():
+            try:
+                if str(child.cget("textvariable")) == str(var):
+                    found.append(child)
+            except Exception:
+                pass
+            found.extend(widgets_with_var(child, var))
+        return found
+
+    d1 = widgets_with_var(ui.tab_frames["nonlinear_split"], ui.density_var)
+    d2 = widgets_with_var(ui.tab_frames["polar_conversion"], ui.density_var)
     check("A 切割密度在两页各有一份且共用变量",
-          len(ui.density_rows) == 2 and all(r.winfo_parent() == str(ui.tab_frames[k])
-                                            for r, k in zip(ui.density_rows, ("nonlinear_split", "polar_conversion"))))
+          len(d1) == 1 and len(d2) == 1 and d1[0] is not d2[0],
+          "nonlinear=%d polar=%d" % (len(d1), len(d2)))
 
     # 输入框显隐（沿用需求八：图片转音符画 / MIDI BPM 提取 不显示输入JSON）
-    ui.current_function.set(funcs[4]["name"]); ui.on_function_change(); root.update_idletasks()
+    ui.current_function.set(ui.function_names[4]); ui.on_function_change(); root.update_idletasks()
     check("A 图片转音符画隐藏输入框", ui.input_frame.winfo_manager() == "",
           ui.input_frame.winfo_manager())
-    ui.current_function.set(funcs[7]["name"]); ui.on_function_change(); root.update_idletasks()
+    ui.current_function.set(ui.function_names[7]); ui.on_function_change(); root.update_idletasks()
     check("A MIDI BPM 隐藏输入框", ui.input_frame.winfo_manager() == "")
-    ui.current_function.set(funcs[0]["name"]); ui.on_function_change(); root.update_idletasks()
-    check("A 常规功能显示输入框", ui.input_frame.winfo_manager() == "pack",
+    ui.current_function.set(ui.function_names[0]); ui.on_function_change(); root.update_idletasks()
+    check("A 常规功能显示输入框", ui.input_frame.winfo_manager() in ("pack", "grid"),
           ui.input_frame.winfo_manager())
 
     # ==================================================================
@@ -154,11 +193,17 @@ try:
         got = str(w.cget("font"))
         check("B %s 字体为 %s" % (attr, ui_font), font_family(got) == ui.ui_font_family, got)
 
-    # ttk 控件没有 -font 选项，字体由样式决定（深色模式开关即属此类）
-    switch_style = ui.dark_mode_check.cget("style") or "TCheckbutton"
-    switch_font = ui.style.lookup(switch_style, "font")
-    check("B 深色模式开关字体为 %s" % (ui_font,), font_family(switch_font) == ui.ui_font_family,
-          "%s (style=%s)" % (switch_font, switch_style))
+    # 第十五轮起深色模式开关移到了菜单栏（视图 → 深色模式），不再是顶栏勾选框
+    menu_labels = []
+    for menu in getattr(ui, "_all_menus", []):
+        try:
+            for i in range(menu.index("end") + 1):
+                if menu.type(i) in ("checkbutton", "radiobutton", "cascade", "command"):
+                    menu_labels.append(str(menu.entrycget(i, "label")).lstrip("\u2714 "))
+        except Exception:
+            pass
+    check("B 深色模式开关已移入菜单栏",
+          i18n.t("menu.dark_mode") in menu_labels, str(menu_labels))
 
     check("B 界面字体取自规定优先级（更纱黑体等宽优先）",
           ui.ui_font_family.startswith("Sarasa")
@@ -193,25 +238,25 @@ try:
         root.update(); root.update_idletasks()
 
     # ==================================================================
-    # D 功能简介
+    # D 功能简介（第十五轮起移到「底边状态条」）
     # ==================================================================
     print("---- D 功能简介 ----")
-    check("D 简介使用灰字样式", ui.desc_label.cget("style") == "Muted.TLabel", ui.desc_label.cget("style"))
+    check("D 简介使用灰字样式", ui.status_label.cget("style") == "Muted.TLabel",
+          ui.status_label.cget("style"))
     muted = ui.style.lookup("Muted.TLabel", "foreground")
     check("D 灰字颜色取自配色表", str(muted).lower() == theme.palette(ui.theme_name)["muted"],
           str(muted))
-    check("D 简介位于顶部区域", ui.desc_label.winfo_parent() == str(ui.desc_label.master) and
-          ui.desc_label.master == ui.dark_mode_check.master,
-          ui.desc_label.winfo_parent())
-    check("D 简介与深色开关同在顶栏",
-          ui.desc_label.master == ui.dark_mode_check.master and ui.desc_label.master != ui.notebook_host,
-          "%s / %s" % (ui.desc_label.winfo_parent(), ui.dark_mode_check.winfo_parent()))
-    check("D 简介右对齐原位置",
-          ui.desc_label.pack_info().get("side") == "right",
-          str(ui.desc_label.pack_info().get("side")))
-    ui.current_function.set(funcs[2]["name"]); ui.on_function_change()
-    check("D 简介内容为该功能说明", ui.desc_label.cget("text") == funcs[2]["desc"],
-          ui.desc_label.cget("text")[:40])
+    check("D 简介位于底边状态条", ui.status_label.master is ui.status_bar,
+          ui.status_label.winfo_parent())
+    check("D 状态条贴在窗口底部",
+          str(ui.status_bar.pack_info().get("side")) == "bottom",
+          str(ui.status_bar.pack_info().get("side")))
+    check("D 状态条不在标签页里", ui.status_bar.master is ui.root,
+          ui.status_bar.winfo_parent())
+    ui.current_function.set(ui.function_names[2]); ui.on_function_change()
+    expect_desc = (i18n.function_by_key(ui.tab_order[2]) or {}).get("desc")
+    check("D 简介内容为该功能说明", ui.status_label.cget("text") == expect_desc,
+          "%r != %r" % (ui.status_label.cget("text")[:40], (expect_desc or "")[:40]))
 
     # ==================================================================
     # E 输入框对比度（圆角文本区）

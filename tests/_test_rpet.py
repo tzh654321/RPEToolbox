@@ -66,7 +66,7 @@ check("T2 tap 缩放后(0,0)", out2["notes"][1]["startTime"] == [0, 0, 1] and ou
 
 # ============ 测试3: 图片转音符 x 坐标分布 ============
 if Image is not None:
-    img_path = os.path.join(BASE, "assets", "images", "_test_img.png")
+    img_path = os.path.join(BASE, "tests", "images", "_test_img.png")
     img = Image.new("RGB", (3, 3))
     px = img.load()
     colors = [(255, 255, 255), (0, 255, 255), (200, 200, 200),
@@ -114,7 +114,7 @@ data4 = {"notes": [
     {"type": 2, "startTime": [3, 0, 1], "endTime": [3, 0, 1], "positionX": 310.0},
     {"type": 2, "startTime": [4, 0, 1], "endTime": [4, 0, 1], "positionX": 0.0},
 ]}
-out4 = app.func_hold_connect(copy.deepcopy(data4))
+out4 = app.func_hold_notes_connect(copy.deepcopy(data4))
 ends = {tuple(n["startTime"]): n["endTime"] for n in out4["notes"]}
 check("T4 轨道区分 0->1", ends[tuple([0, 0, 1])] == [1, 0, 1], str(ends.get(tuple([0, 0, 1]))))
 check("T4 轨道区分 1->4", ends[tuple([1, 0, 1])] == [4, 0, 1], str(ends.get(tuple([1, 0, 1]))))
@@ -126,7 +126,7 @@ data4b = {"notes": [
     {"type": 2, "startTime": [0, 0, 1], "endTime": [0, 0, 1], "positionX": 100.0},
     {"type": 2, "startTime": [2, 0, 1], "endTime": [2, 0, 1], "positionX": 50.0},
 ]}
-out4b = app.func_hold_connect(copy.deepcopy(data4b))
+out4b = app.func_hold_notes_connect(copy.deepcopy(data4b))
 endsb = [n["endTime"] for n in out4b["notes"]]
 check("T4 双押共同参考下一时间", endsb[0] == [2, 0, 1] and endsb[1] == [2, 0, 1] and endsb[2] == [2, 0, 1], str(endsb))
 
@@ -136,7 +136,7 @@ data4c = {"notes": [
     {"type": 2, "startTime": [1, 0, 1], "endTime": [1, 0, 1], "positionX": 100.0},
     {"type": 2, "startTime": [2, 0, 1], "endTime": [2, 0, 1], "positionX": 300.0},
 ]}
-out4c = app.func_hold_connect(copy.deepcopy(data4c))
+out4c = app.func_hold_notes_connect(copy.deepcopy(data4c))
 endsc = [n["endTime"] for n in out4c["notes"]]
 check("T4 非区分模式 0->1, 1->2", endsc[0] == [1, 0, 1] and endsc[1] == [2, 0, 1] and endsc[2] == [2, 0, 1], str(endsc))
 
