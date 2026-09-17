@@ -108,13 +108,21 @@
 - 菜单栏底色用 `palette["menubar_bg"]`（与窗口底色拉开色差）+ 底部 1px `menubar_border` 分隔线。
 - 三个彩色按钮配色走 `theme.button_colors(key, dark)`：暗色查独立常数表 `BUTTON_COLORS_DARK`
   （底色/字色与浅色表互换后的色号，两张表互相独立、不再调用时互换）。
-- **i18n 文案里的占位符调用时必须传参**：`t()` 只在传了 kwargs 时才 format，
-  漏传就会在界面显示 "{xxx}" 字面量（曾在关于弹窗的 {version} 上踩过）；
-  版本号在 `rpe_toolbox/__init__.py` 的 `__version__`。
 - **功能介绍拆分**：`assets/lang/mods/<语言>/<模组key>.json`（`{"text": ...}`），
   `resources.lang_mods_dir()` + `i18n._read` 合并进 help 块；主语言文件不再含 help。
 - **打包在仓库外**：`C:\Users\tzh\Documents\code\og\build_exe.py`（PyInstaller onefile+windowed，
-  assets 整目录 --add-data）；版本号 `__version__`（YYYY.M.D）。
+  assets 整目录 --add-data；构建子进程要清掉 PYTHONPATH 摆脱 safe-delete 钩子、别用 --clean）；
+  版本号 `__version__`（YYYY.M.D）；打包后自动把 assets 与 rpe_toolbox/mods 铺到 exe 同级。
+- **exe 同级文件优先**：冻结时 `resources._project_root()` 与 `mods_loader.mods_root()`
+  优先用 exe 同级的 assets / rpe_toolbox/mods（_MEIPASS 里没有 mods 的 .py 源文件）。
+- **launcher.relaunch_as_pythonw 冻结时必须跳过**：否则 exe 重启自身 + 继承 _MEIPASS2，
+  会触发 PyInstaller 6.22+ 的 onefile 父进程安全校验失败（Security validation failure）。
+- **验证打包 exe 别在沙箱里启动**：沙箱限制父进程路径查询，会误报同样的校验错误。
+- **动态加载的模组依赖必须显式收集**：模组运行时 spec_from_file_location 加载，
+  PyInstaller 静态分析看不到其依赖（如 `rpe_toolbox.shared`）→ 打包加
+  `--collect-submodules rpe_toolbox`，否则依赖它的模组（非线性切割/极坐标转换）静默消失。
+- **分享版 zip**：`og\RPEToolbox_<版本>.zip`（exe + assets + rpe_toolbox/mods + 使用说明.txt），
+  由 build_exe.py 之后手动/脚本生成，无需 Python 环境。
 
 ## 测试
 - 测试都在 `tests/`，直接 `python tests/_test_*.py` 跑，各自打印 `TOTAL: n PASS, m FAIL` 并用退出码表示结果。

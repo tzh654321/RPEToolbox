@@ -14,6 +14,12 @@ def relaunch_as_pythonw(script_path=None):
     """
     if os.name != "nt":
         return
+    if getattr(sys, "frozen", False):
+        # 打包成 exe（--windowed）后没有控制台可藏，重启自身反而会让
+        # PyInstaller 6.22+ 的 onefile 父进程安全校验失败：
+        # 新进程继承了 _MEIPASS2，而启动它的应用实例随即退出，
+        # 校验父进程可执行文件路径时就会报 "Security validation failure"。
+        return
     if os.environ.get("RPET_NO_RELAUNCH"):
         return
     if "pythonw" in sys.executable.lower():
