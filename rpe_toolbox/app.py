@@ -16,6 +16,7 @@ import traceback
 from tkinter import filedialog, messagebox, ttk
 
 from . import audio, config, dpi, i18n, mods_loader, resources, theme
+from . import __version__ as APP_VERSION
 from .core import FunctionMixin
 from .i18n import t
 from .imglib import Image
@@ -222,7 +223,7 @@ class RPEToolbox(FunctionMixin):
         outer_bg = self._outer_bg(palette)
 
         for key, button in self.all_buttons():
-            bg, fg, active_bg = theme.BUTTON_COLORS[key]
+            bg, fg, active_bg = theme.button_colors(key, self.theme_name == "dark")
             try:
                 button.configure(bg=bg, fg=fg, activebackground=active_bg, activeforeground=fg,
                                  highlightbackground=bg, highlightcolor=bg)
@@ -817,6 +818,12 @@ class RPEToolbox(FunctionMixin):
             self._menu_buttons[text_key] = btn
             self._menu_source[text_key] = menu
 
+        # 底部一条 1px 分隔线：让菜单栏与下方内容拉开色差（颜色随主题在 _style_menus 里刷）
+        palette = theme.palette(self.theme_name)
+        bar._hp_line = tk.Frame(bar, height=self.px(1), bd=0,
+                                bg=palette.get("menubar_border", palette["muted"]))
+        bar._hp_line.pack(side=tk.BOTTOM, fill=tk.X)
+
         self._all_menus = [func_menu, self.group_menu, self.enable_menu,
                            view_menu, self.lang_menu, help_menu]
         self._sync_menus()
@@ -886,9 +893,13 @@ class RPEToolbox(FunctionMixin):
         self._close_dropdown()
         if not was_open:
             self._open_dropdown(text_key, level=0)
+            self._start_dropdown_watch()
 
-    def _dropdown_row(self, parent, label, command=None, cascade=False):
-        """下拉里的一行（经典 tk.Button，配色随主题，悬停有高亮）。"""
+    def _dropdown_row(self, parent, label, command=None, cascade=False, hover=None):
+        """下拉里的一行（经典 tk.Button，配色随主题，悬停有高亮）。
+
+        行距刻意收紧（pady=2、左侧 12px 缩进），贴近原生菜单的排版。
+        """
         palette = theme.palette(self.theme_name)
         text = label + ("  \u203a" if cascade else "")
         btn = tk.Button(parent, text=text, anchor="w", bd=0, relief=tk.FLAT,
@@ -897,69 +908,100 @@ class RPEToolbox(FunctionMixin):
                         activebackground=palette["select_bg"] if self.theme_name == "dark"
                         else palette["accent"],
                         activeforeground="#ffffff",
-                        padx=self.px(10), pady=self.px(4), command=command)
+                        padx=self.px(12), pady=self.px(2), command=command)
+        if hover is not None:
+            # 悬停级联项时像原生菜单一样弹出下一级
+            btn.bind("<Enter>", lambda e, h=hover: h())
         return btn
+
+    def _close_dropdown_from(self, level):
+        """销毁 level 及更深层的所有下拉面板（切到别的级联/普通条目时用）。
+
+        注意必须逐个 destroy —— 只从列表里裁掉的话，窗口还留在屏幕上
+        （曾表现为：悬停「启用」弹出子菜单后移到「切换组」，启用面板不消失）。
+        """
+        idx = level
+        while idx < len(self._dropdowns):
+            p = self._dropdowns[idx]
+            if p is not None:
+                try:
+                    p.destroy()
+                except Exception:
+                    pass
+            idx += 1
+        del self._dropdowns[level:]
 
     def _dropdown_entry(self, parent, menu, index, text_key, level, anchor_btn):
         kind = menu.type(index)
         if kind == "separator":
             palette = theme.palette(self.theme_name)
             tk.Frame(parent, bg=palette["muted"], height=self.px(1)).pack(
-                fill=tk.X, padx=self.px(8), pady=self.px(3))
+                fill=tk.X, padx=self.px(8), pady=self.px(2))
             return
         label = str(menu.entrycget(index, "label"))
         if kind == "cascade":
             submenu = menu.nametowidget(menu.entrycget(index, "menu"))
-            btn = self._dropdown_row(
-                parent, label,
-                command=lambda: self._open_dropdown(text_key, level=level + 1,
-                                                    submenu=submenu, title=label),
-                cascade=True)
+
+            def open_child(btn=parent):
+                # 悬停/点击级联项：像原生菜单一样向右弹出下一级，
+                # 同时销毁更深层的面板（避免旧面板残留在屏幕上）
+                self._close_dropdown_from(level + 1)
+                self._open_dropdown(text_key, level=level + 1, submenu=submenu,
+                                    anchor=btn)
+                self._start_dropdown_watch()
+
+            btn = self._dropdown_row(parent, label, command=open_child,
+                                     cascade=True, hover=open_child)
         else:
+            def plain_hover():
+                # 移到普通条目上时，收起更深层的手风琴（原生菜单也是这样）
+                self._close_dropdown_from(level + 1)
+                self._start_dropdown_watch()
+
             btn = self._dropdown_row(
                 parent, label,
-                command=lambda m=menu, i=index: self._run_menu_item(m, i))
+                command=lambda m=menu, i=index: self._run_menu_item(m, i),
+                hover=plain_hover)
         btn.pack(fill=tk.X)
 
-    def _open_dropdown(self, text_key, level=0, submenu=None, title=""):
-        """渲染一个下拉：条目来自 tk.Menu（数据源），外观全部自绘。"""
+    def _open_dropdown(self, text_key, level=0, submenu=None, title="", anchor=None):
+        """渲染一个下拉：条目来自 tk.Menu（数据源），外观全部自绘。
+
+        level=0 是菜单栏按钮正下方的面板；level>=1 是级联子菜单，
+        anchor 给出触发它的那一行（子面板出现在它右侧）。
+        """
         palette = theme.palette(self.theme_name)
         menu = submenu if submenu is not None else getattr(self, "_menu_source", {}).get(text_key)
         if menu is None:
             return
-        anchor_btn = self._menu_buttons.get(text_key if level == 0 else
-                                            (getattr(self, "_dropdown_key", None) or text_key))
+        anchor_btn = self._menu_buttons.get(text_key)
         popup = tk.Toplevel(self.root)
         popup.overrideredirect(True)
         popup.transient(self.root)
         inner = tk.Frame(popup, bg=palette["bg"], bd=1,
                          highlightthickness=1,
-                         highlightbackground=palette["muted"])
+                         highlightbackground=palette["menubar_border"])
         inner.pack(fill=tk.BOTH, expand=True)
-
-        if level > 0:                        # 二级面板：顶部给一个「返回」
-            back = self._dropdown_row(inner, "\u2039 " + t("menu.back"),
-                                      command=lambda: self._open_dropdown(text_key, level=0))
-            back.pack(fill=tk.X)
-            tk.Frame(inner, bg=palette["muted"], height=self.px(1)).pack(
-                fill=tk.X, padx=self.px(8), pady=self.px(2))
 
         end = menu.index("end")
         if end is not None:
             for i in range(end + 1):
                 self._dropdown_entry(inner, menu, i, text_key, level, anchor_btn)
 
-        # 位置：一级在按钮正下方，二级在按钮右侧
+        # 位置：一级在按钮正下方，级联子面板在触发行的右侧
         if level == 0 and anchor_btn is not None:
             x = anchor_btn.winfo_rootx()
             y = anchor_btn.winfo_rooty() + anchor_btn.winfo_height()
+        elif anchor is not None:
+            x = anchor.winfo_rootx() + anchor.winfo_width() - self.px(4)
+            y = anchor.winfo_rooty()
         else:
             x = self.menubar.winfo_rootx() + self.menubar.winfo_width() // 3
             y = self.menubar.winfo_rooty() + self.px(30)
         popup.update_idletasks()
         sw = popup.winfo_screenwidth()
         sh = popup.winfo_screenheight()
-        w = max(self.px(200), popup.winfo_reqwidth())
+        w = max(self.px(160), popup.winfo_reqwidth())
         h = popup.winfo_reqheight()
         x = min(max(0, x), max(0, sw - w - 8))
         y = min(max(0, y), max(0, sh - h - 8))
@@ -972,16 +1014,72 @@ class RPEToolbox(FunctionMixin):
         popup.update_idletasks()
 
         popup.attributes("-topmost", True)
-        try:
-            popup.grab_set()                  # 点外面就收起
-        except Exception:
-            pass
         popup.bind("<Escape>", lambda e: self._close_dropdown())
         popup.bind("<Button-1>", lambda e: self._close_dropdown()
                    if e.widget is popup else None)
-        self._dropdowns = [p for p in getattr(self, "_dropdowns", []) if p is not popup]
-        self._dropdowns.append(popup)
+        while len(self._dropdowns) <= level:
+            self._dropdowns.append(None)
+        self._dropdowns[level] = popup
         self._dropdown_key = text_key
+
+    def _start_dropdown_watch(self):
+        """鼠标移开所有菜单面板（且不在菜单栏上）时自动收起，模拟原生菜单。"""
+        if getattr(self, "_dropdown_watch_running", False):
+            return
+        self._dropdown_watch_running = True
+
+        def watch():
+            self._dropdown_watch_running = False
+            if not getattr(self, "_dropdowns", []):
+                return
+            try:
+                px = self.root.winfo_pointerx()
+                py = self.root.winfo_pointery()
+            except Exception:
+                return
+            inside = False
+            for p in list(self._dropdowns):
+                if p is None:
+                    continue
+                try:
+                    if not p.winfo_exists():
+                        continue
+                except Exception:
+                    continue
+                x, y = p.winfo_rootx(), p.winfo_rooty()
+                if x - 2 <= px <= x + p.winfo_width() + 2 and \
+                        y - 2 <= py <= y + p.winfo_height() + 2:
+                    inside = True
+                    break
+            if not inside:
+                bar = getattr(self, "menubar", None)
+                if bar is not None:
+                    bx, by = bar.winfo_rootx(), bar.winfo_rooty()
+                    if bx - 2 <= px <= bx + bar.winfo_width() + 2 and \
+                            by - 2 <= py <= by + bar.winfo_height() + 2:
+                        inside = True          # 还在菜单栏上：先别收，可能要切换
+            if inside:
+                self._dropdown_outside = 0
+                try:
+                    self.root.after(150, watch)
+                except Exception:
+                    pass
+            else:
+                # 连续两次（约 300ms）都在外面才收起：避免指针恰好扫过空隙时误关
+                self._dropdown_outside = getattr(self, "_dropdown_outside", 0) + 1
+                if self._dropdown_outside >= 2:
+                    self._dropdown_outside = 0
+                    self._close_dropdown()
+                else:
+                    try:
+                        self.root.after(150, watch)
+                    except Exception:
+                        pass
+
+        try:
+            self.root.after(200, watch)
+        except Exception:
+            self._dropdown_watch_running = False
 
     def _run_menu_item(self, menu, index):
         """执行下拉里选中的那一项，然后收起并重画勾选。"""
@@ -992,7 +1090,7 @@ class RPEToolbox(FunctionMixin):
             self._sync_menus()
 
     def _style_menus(self, palette=None):
-        """菜单栏配色：自绘菜单栏（Frame + Menubutton）与下拉 tk.Menu 都在这里刷。
+        """菜单栏配色：自绘菜单栏（Frame + 按钮 + 底部分隔线）与下拉数据源都在这里刷。
 
         暗色下把 activebackground 也压暗一档，避免用亮蓝当高亮时“亮块+浅字”刺眼；
         selectcolor 一并设置，减少系统默认色在两种主题下与底色撞车的可能。
@@ -1002,15 +1100,22 @@ class RPEToolbox(FunctionMixin):
         dark = self.theme_name == "dark"
         active_bg = palette["select_bg"] if dark else palette["accent"]
         active_fg = "#ffffff"
-        # 自绘菜单栏本身（Frame + 经典 tk.Menubutton，颜色完全可控）
+        bar_bg = palette.get("menubar_bg", palette["bg"])
+        # 自绘菜单栏本身（Frame + 按钮 + 底部分隔线，与下方内容拉开色差）
         try:
-            self.menubar.configure(bg=palette["bg"])
+            self.menubar.configure(bg=bar_bg)
         except Exception:
             pass
         for btn in getattr(self, "_menu_buttons", {}).values():
             try:
-                btn.configure(bg=palette["bg"], fg=palette["fg"],
+                btn.configure(bg=bar_bg, fg=palette["fg"],
                               activebackground=active_bg, activeforeground=active_fg)
+            except Exception:
+                pass
+        line = getattr(self.menubar, "_hp_line", None)
+        if line is not None:
+            try:
+                line.configure(bg=palette.get("menubar_border", palette["muted"]))
             except Exception:
                 pass
         for menu in getattr(self, "_all_menus", []):
@@ -1024,7 +1129,9 @@ class RPEToolbox(FunctionMixin):
                 pass
 
     def show_about(self):
-        messagebox.showinfo(t("dialogs.about_title"), t("dialogs.about_text"))
+        # 文案里的 {version} 必须真的传值，否则界面会显示字面量 "{version}"
+        messagebox.showinfo(t("dialogs.about_title"),
+                            t("dialogs.about_text", version=APP_VERSION))
 
     def show_function_help(self):
         """帮助 / 功能介绍：弹窗显示当前功能的详细使用方法（含每个选项的作用）。"""
@@ -1057,7 +1164,7 @@ class RPEToolbox(FunctionMixin):
         win._hp_text.pack(side=tk.LEFT, fill=tk.BOTH, expand=True)
         win._hp_text.insert("1.0", body)
         win._hp_text.configure(state=tk.DISABLED)          # 只读
-        bg, fg, active_bg = theme.BUTTON_COLORS["clear"]
+        bg, fg, active_bg = theme.button_colors("clear", self.theme_name == "dark")
         win._hp_btn = tk.Button(win, text=t("dialogs.close"), command=win.destroy,
                                 font=self.font_spec(10), bg=bg, fg=fg,
                                 activebackground=active_bg, activeforeground=fg,
@@ -1097,7 +1204,7 @@ class RPEToolbox(FunctionMixin):
             except Exception:
                 pass
         if btn is not None:
-            bg, fg, active_bg = theme.BUTTON_COLORS["clear"]
+            bg, fg, active_bg = theme.button_colors("clear", self.theme_name == "dark")
             try:
                 btn.configure(bg=bg, fg=fg, activebackground=active_bg,
                               activeforeground=fg, highlightbackground=bg, highlightcolor=bg)
@@ -1259,7 +1366,7 @@ class RPEToolbox(FunctionMixin):
         frame_btn.grid(row=1, column=0, sticky="ew", pady=self.px(4))
         button_texts = {"convert": "buttons.convert", "copy": "buttons.copy", "clear": "buttons.clear"}
         for key in ("convert", "copy", "clear"):
-            bg, fg, active_bg = theme.BUTTON_COLORS[key]
+            bg, fg, active_bg = theme.button_colors(key, self.theme_name == "dark")
             button = tk.Button(frame_btn, text=t(button_texts[key]), font=self.font_spec(10),
                                bg=bg, fg=fg, activebackground=active_bg, activeforeground=fg,
                                command=lambda k=key: self._trigger_with_sound(k))

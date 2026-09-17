@@ -1,0 +1,3 @@
+{
+  "text": "[What] Sets the endTime of a hold (or event) to the next distinct note/event startTime so that long notes / events connect head-to-tail (simultaneous notes share the next time; the last one is skipped).\n\n[Options]\n- Allow length shorten: default off = only lengthen, never shorten. When on, \"next note startTime\" is searched from this note's own startTime, so a hold may become shorter.\n- Distinguish tracks: default off = process all notes in time order. When on, each track is handled separately (0->1, 1->4, 2->3); simultaneous notes share the next time, the last stays.\n\n[Usage] Paste notes, press Convert, read the result from the output JSON."
+}

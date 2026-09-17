@@ -1,0 +1,3 @@
+{
+  "text": "[What] Cuts and merges a full score by range and exports a pez file (currently calls the external RPE Event Cutter; will be rewritten in Python later).\n\n[Options]\n- Input (zip/pez/folder): the score to process.\n- Output pez: where the result is saved.\n\n[Usage] Pick input and output, Convert."
+}

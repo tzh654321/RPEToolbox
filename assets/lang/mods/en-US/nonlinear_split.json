@@ -1,0 +1,3 @@
+{
+  "text": "[What] Splits events by a given density, easing edges and bezier control points handled automatically.\n\n[Options]\n- Cut density / note interval (subdivisions): one segment per subdivision, larger = denser (e.g. 4 = one segment per 1/4 beat).\n\n[Usage] Paste events, set the density, Convert."
+}

@@ -6,8 +6,17 @@ import sys
 
 
 def _project_root():
-    """项目根目录：PyInstaller 单文件打包后取解包目录 _MEIPASS，否则取包上级两级。"""
+    """项目根目录。
+
+    * 开发环境：包上级两级（rpe_toolbox/..）。
+    * PyInstaller 打包后：默认取解包目录 _MEIPASS（assets 已随 exe 打包）；
+      但如果 **exe 同级**放了 assets 目录，就优先用外部的那份 —— 这样改语言文件、
+      功能介绍（assets/lang/mods/）无需重新打包。
+    """
     if getattr(sys, "frozen", False):
+        exe_dir = os.path.dirname(os.path.abspath(sys.executable))
+        if os.path.isdir(os.path.join(exe_dir, "assets")):
+            return exe_dir
         return sys._MEIPASS
     return os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 
@@ -27,6 +36,14 @@ def audio_path(file_name):
 def lang_path(language_code):
     """返回界面文案文件（assets/lang/<语言代码>.json）的绝对路径。"""
     return os.path.join(LANG_DIR, language_code + ".json")
+
+
+def lang_mods_dir(language_code):
+    """返回功能介绍目录（assets/lang/mods/<语言代码>/<模组key>.json）的绝对路径。
+
+    每个文件是一个 {"text": "..."} 对象，键名为文件名（模组 key）。
+    """
+    return os.path.join(LANG_DIR, "mods", language_code)
 
 
 def user_config_path():

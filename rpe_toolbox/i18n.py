@@ -102,7 +102,28 @@ def _read(language_code):
         for path in tried:
             if os.path.exists(path):
                 with open(path, "r", encoding="utf-8") as f:
-                    _cache[code] = json.load(f)
+                    data = json.load(f)
+                # 功能介绍拆分在 assets/lang/mods/<语言>/<模组key>.json（{"text": ...}），
+                # 逐个合并进 help 块；目录缺失或单个文件损坏都不影响主文案。
+                try:
+                    from . import resources
+                    mods_dir = resources.lang_mods_dir(code)
+                    if os.path.isdir(mods_dir):
+                        help_map = data.setdefault("help", {})
+                        for fn in sorted(os.listdir(mods_dir)):
+                            if not fn.endswith(".json"):
+                                continue
+                            try:
+                                with open(os.path.join(mods_dir, fn),
+                                          "r", encoding="utf-8") as hf:
+                                    obj = json.load(hf)
+                            except Exception:
+                                continue
+                            if isinstance(obj, dict) and isinstance(obj.get("text"), str):
+                                help_map[fn[:-5]] = obj["text"]
+                except Exception:
+                    pass
+                _cache[code] = data
                 return _cache[code]
         raise RuntimeError(
             "未找到界面文案文件（{0}.json），已尝试：\n  {1}\n"

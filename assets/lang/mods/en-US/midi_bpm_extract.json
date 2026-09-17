@@ -1,0 +1,3 @@
+{
+  "text": "[What] Extracts the list of BPM changes from a MIDI file.\n\n[Options]\n- MIDI path: pick a .mid file (or press \"Pick MIDI\").\n\n[Usage] Pick a file, Convert; the output JSON lists each BPM with its start beat."
+}

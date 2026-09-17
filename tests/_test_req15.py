@@ -214,28 +214,45 @@ try:
     # C 按钮配色
     # ==================================================================
     print("---- C 按钮配色 ----")
+    dark = ui.theme_name == "dark"
     for attr, key in (("btn_convert", "convert"), ("btn_copy", "copy"), ("btn_clear", "clear")):
-        bg, fg, active = theme.BUTTON_COLORS[key]
+        bg, fg, active = theme.button_colors(key, dark)
         w = getattr(ui, attr)
         for _ in range(2):
             root.update(); root.update_idletasks()
-        check("C %s 背景为最初配色" % attr, w.cget("bg") == bg, "%s != %s" % (w.cget("bg"), bg))
-        check("C %s 文字为最初配色" % attr, w.cget("fg") == fg, "%s != %s" % (w.cget("fg"), fg))
+        check("C %s 背景为当前主题配色" % attr, w.cget("bg") == bg, "%s != %s" % (w.cget("bg"), bg))
+        check("C %s 文字为当前主题配色" % attr, w.cget("fg") == fg, "%s != %s" % (w.cget("fg"), fg))
         check("C %s 按下色已适配" % attr, w.cget("activebackground") == active, w.cget("activebackground"))
     check("C 三个按钮颜色互不相同",
-          len({theme.BUTTON_COLORS[k][0] for k in theme.BUTTON_COLORS}) == 3)
+          len({theme.button_colors(k, dark)[0] for k in theme.BUTTON_COLORS}) == 3)
 
-    # 切换主题后仍然是原配色
+    # 暗色模式下底色与字色**互换**；切回浅色恢复原配色
     ui.dark_mode_var.set(True)
     for _ in range(3):
         root.update(); root.update_idletasks()
-    still = all(getattr(ui, a).cget("bg") == theme.BUTTON_COLORS[k][0]
-                for a, k in (("btn_convert", "convert"), ("btn_copy", "copy"), ("btn_clear", "clear")))
-    check("C 切到深色后按钮仍为原配色", still,
-          str([getattr(ui, a).cget("bg") for a in ("btn_convert", "btn_copy", "btn_clear")]))
+    for a, k in (("btn_convert", "convert"), ("btn_copy", "copy"), ("btn_clear", "clear")):
+        bg, fg, active = theme.button_colors(k, True)
+        w = getattr(ui, a)
+        check("C 深色下 %s 底色/字色互换" % a,
+              w.cget("bg") == bg and w.cget("fg") == fg,
+              "%s/%s != %s/%s" % (w.cget("bg"), w.cget("fg"), bg, fg))
+    check("C 深色下三个按钮底色仍互不相同",
+          len({theme.button_colors(k, True)[0] for k in theme.BUTTON_COLORS}) == 3)
+    # 暗色配色是独立常数表（BUTTON_COLORS_DARK），不在调用时互换
+    check("C 暗色配色来自独立常数表 BUTTON_COLORS_DARK",
+          hasattr(theme, "BUTTON_COLORS_DARK")
+          and theme.BUTTON_COLORS_DARK is not theme.BUTTON_COLORS
+          and all(theme.button_colors(k, True) == theme.BUTTON_COLORS_DARK[k]
+                  for k in theme.BUTTON_COLORS_DARK)
+          and set(theme.BUTTON_COLORS_DARK) == set(theme.BUTTON_COLORS),
+          str(getattr(theme, "BUTTON_COLORS_DARK", None)))
     ui.dark_mode_var.set(False)
     for _ in range(3):
         root.update(); root.update_idletasks()
+    back = all(getattr(ui, a).cget("bg") == theme.button_colors(k, False)[0]
+               for a, k in (("btn_convert", "convert"), ("btn_copy", "copy"), ("btn_clear", "clear")))
+    check("C 切回浅色后恢复原配色", back,
+          str([getattr(ui, a).cget("bg") for a in ("btn_convert", "btn_copy", "btn_clear")]))
 
     # ==================================================================
     # D 功能简介（第十五轮起移到「底边状态条」）

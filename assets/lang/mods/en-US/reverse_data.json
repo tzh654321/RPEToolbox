@@ -1,0 +1,3 @@
+{
+  "text": "[What] Stretches or compresses note and event times by a ratio; a negative ratio also reverses them.\n\n[Options]\n- Stretch ratio: 2 doubles the length, 0.5 halves it, -1 reverses at the original speed.\n\n[Usage] Paste JSON, set the ratio, Convert."
+}

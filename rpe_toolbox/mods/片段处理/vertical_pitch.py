@@ -223,7 +223,6 @@ def build_options(app, parent):
                command=lambda: preview(app)).pack(side=tk.LEFT, padx=app.px(5))
     ttk.Button(row, text=t("buttons.refresh"),
                command=lambda: refresh(app)).pack(side=tk.LEFT, padx=app.px(5))
-    ttk.Label(row, text=t("labels.pitch_hint"), style="Muted.TLabel").pack(side=tk.LEFT, padx=app.px(5))
 
     # 可视化区：纵向 = 时间（下早↑晚），横向 = x 坐标；高度固定，让输入/输出框能等分剩下的空间
     app.vp_canvas = tk.Canvas(parent, height=app.px(240), bd=0, highlightthickness=1)

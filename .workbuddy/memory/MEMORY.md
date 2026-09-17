@@ -99,13 +99,29 @@
   `WM_SETICON` 小/大图标各发一次；开着的帮助窗口登记在 `app._help_windows`，换主题时统一重刷。
 - 各功能的详细使用说明（作用/每个选项的作用/操作方法）在 `assets/lang/*.json` 顶层 `help` 块，
   代码里只 `i18n.load().get("help", {}).get(mod_key)`，不写死文字。
+- **自绘下拉**：tk.Menu 只当数据源，展示用 `Toplevel(overrideredirect=True)` + 一列 tk.Button；
+  行距紧凑（pady=2），级联项悬停即向右弹出二级面板（无「返回」行），`_dropdowns` 按层级下标存；
+  级联/普通条目切换时用 `_close_dropdown_from(level)` **destroy** 旧面板（只裁列表会残留屏幕上）；
+  `_start_dropdown_watch` 轮询指针位置，连续两次（约 300ms）在外才自动收起（不用 grab）。
+  坑①：overrideredirect 窗口映射前 geometry("+x+y") 被忽略，要先带尺寸 deiconify 再定位。
+  坑②：grab_set 会拦截不在 grab 树里的子面板点击，多级面板别用。
+- 菜单栏底色用 `palette["menubar_bg"]`（与窗口底色拉开色差）+ 底部 1px `menubar_border` 分隔线。
+- 三个彩色按钮配色走 `theme.button_colors(key, dark)`：暗色查独立常数表 `BUTTON_COLORS_DARK`
+  （底色/字色与浅色表互换后的色号，两张表互相独立、不再调用时互换）。
+- **i18n 文案里的占位符调用时必须传参**：`t()` 只在传了 kwargs 时才 format，
+  漏传就会在界面显示 "{xxx}" 字面量（曾在关于弹窗的 {version} 上踩过）；
+  版本号在 `rpe_toolbox/__init__.py` 的 `__version__`。
+- **功能介绍拆分**：`assets/lang/mods/<语言>/<模组key>.json`（`{"text": ...}`），
+  `resources.lang_mods_dir()` + `i18n._read` 合并进 help 块；主语言文件不再含 help。
+- **打包在仓库外**：`C:\Users\tzh\Documents\code\og\build_exe.py`（PyInstaller onefile+windowed，
+  assets 整目录 --add-data）；版本号 `__version__`（YYYY.M.D）。
 
 ## 测试
 - 测试都在 `tests/`，直接 `python tests/_test_*.py` 跑，各自打印 `TOTAL: n PASS, m FAIL` 并用退出码表示结果。
 - 测试用 `object.__new__(FunctionMixin)` 起无界面实例测核心逻辑；UI 测试直接 `tk.Tk()` + `RPEToolbox(root)`。
 - 要求：改动后把 `tests/` 全部跑一遍（`_test_rpet/_req9/_req11/_req12/_polar_fix/_allow_shorten/_req14/_req15/_req16/_req17/_icons/_mods`，
   `_test_ui` 已删——断言被 _test_mods/_test_req15/16/_test_req11/_test_req9 覆盖，图标优先级断言并入了 _test_icons）。
-  共 425 项断言 + `_test_polar_fix` 的 ALL PASSED。
+  共 436 项断言 + `_test_polar_fix` 的 ALL PASSED。
 - 测试图片在 `tests/images/`（`assets/images` 已移除，`resources.IMAGES_DIR` 已删）。
 - 进度条/进度线这类"带时序"的断言**不要用采样法**（机器繁忙时一次 update() 会吃掉整段计时窗口），
   改成同步断言 + 临时放大延时（如把 PROGRESS_MIN_MS 设 1500ms 再断言 900ms 时仍在）。

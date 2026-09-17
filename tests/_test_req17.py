@@ -151,15 +151,17 @@ try:
     for _ in range(2):
         root.update(); root.update_idletasks()
     # 菜单栏现在是自绘的 Frame + 经典 Menubutton（原生 menubar 在 Tk9/Windows 上不吃配色）
-    check("B 浅色菜单栏底色取自配色表",
-          str(ui.menubar.cget("background")).lower() == pal_light["bg"],
+    check("B 浅色菜单栏底色取自配色表（与下方内容拉开色差）",
+          str(ui.menubar.cget("background")).lower() == pal_light["menubar_bg"]
+          and pal_light["menubar_bg"] != pal_light["bg"],
           ui.menubar.cget("background"))
     ui._apply_theme("dark")
     for _ in range(3):
         root.update(); root.update_idletasks()
     pal_dark = theme.palette("dark")
-    check("B 深色菜单栏底色随之变深",
-          str(ui.menubar.cget("background")).lower() == pal_dark["bg"],
+    check("B 深色菜单栏底色随主题（与下方内容拉开色差）",
+          str(ui.menubar.cget("background")).lower() == pal_dark["menubar_bg"]
+          and pal_dark["menubar_bg"] != pal_dark["bg"],
           ui.menubar.cget("background"))
     btn = ui._menu_buttons["menu.help"]
     check("B 深色菜单栏按钮前景为浅色",
@@ -835,8 +837,13 @@ try:
     for _ in range(3):
         root.update(); root.update_idletasks()
     check("L 菜单栏是自绘 Frame（不再是原生 menubar）",
-          isinstance(ui.menubar, tk.Frame) and str(ui.menubar.cget("background")).lower() == pal_dark["bg"],
+          isinstance(ui.menubar, tk.Frame)
+          and str(ui.menubar.cget("background")).lower() == pal_dark["menubar_bg"],
           str(ui.menubar.cget("background")))
+    line = getattr(ui.menubar, "_hp_line", None)
+    check("L 菜单栏底部有分隔线（与下方拉开色差）",
+          line is not None and str(line.cget("background")).lower() == pal_dark["menubar_border"],
+          line.cget("background") if line is not None else None)
     check("L 菜单栏按钮为 功能/显示/帮助",
           [str(b.cget("text")) for b in ui._menu_buttons.values()]
           == [i18n.t("menu.function"), i18n.t("menu.view"), i18n.t("menu.help")],
@@ -870,19 +877,97 @@ try:
         root.update(); root.update_idletasks()
     check("L 收起后下拉销毁", not ui._dropdowns, str(ui._dropdowns))
 
-    # 二级面板（级联子菜单）
-    ui._open_dropdown("menu.function", level=1, submenu=ui.group_menu, title="切换组")
+    # 二级面板（级联子菜单）：不再有「返回」行，直接列出子条目，且出现在一级面板右侧
+    ui._open_dropdown("menu.view")
     for _ in range(2):
         root.update(); root.update_idletasks()
-    check("L 二级面板能打开（含返回行）",
-          bool(ui._dropdowns) and any(isinstance(w, tk.Button) and "返回" in w.cget("text")
-                                      for w in ui._dropdowns[0].winfo_children()[0].winfo_children()),
-          "")
+    rows1 = [w for w in ui._dropdowns[0].winfo_children()[0].winfo_children()
+             if isinstance(w, tk.Button)]
+    cascade_rows = [w for w in rows1 if w.cget("text").endswith("\u203a")]
+    check("L 一级面板里的级联项带 › 标记", bool(cascade_rows),
+          str([w.cget("text") for w in rows1]))
+    if cascade_rows:
+        ui._open_dropdown("menu.view", level=1, submenu=ui.lang_menu,
+                          anchor=cascade_rows[-1])
+        for _ in range(2):
+            root.update(); root.update_idletasks()
+        check("L 二级面板能打开",
+              len(ui._dropdowns) >= 2 and ui._dropdowns[1] is not None
+              and ui._dropdowns[1].winfo_ismapped(), str(ui._dropdowns))
+        if len(ui._dropdowns) >= 2 and ui._dropdowns[1] is not None:
+            rows2 = [w for w in ui._dropdowns[1].winfo_children()[0].winfo_children()
+                     if isinstance(w, tk.Button)]
+            texts2 = [w.cget("text") for w in rows2]
+            check("L 二级面板直接列出子条目（无返回行）",
+                  len(rows2) == ui.lang_menu.index("end") + 1
+                  and not any("返回" in x or "Back" in x for x in texts2),
+                  str(texts2))
+            check("L 二级面板出现在一级面板右侧",
+                  ui._dropdowns[1].winfo_x() > ui._dropdowns[0].winfo_x(),
+                  "%s vs %s" % (ui._dropdowns[1].winfo_x(), ui._dropdowns[0].winfo_x()))
+    ui._close_dropdown()
+    for _ in range(2):
+        root.update(); root.update_idletasks()
+
+    # 复现用户场景：悬停「启用」弹出子面板后，再移到「切换组」，启用面板必须消失
+    ui._open_dropdown("menu.function")
+    for _ in range(2):
+        root.update(); root.update_idletasks()
+    rows1 = [w for w in ui._dropdowns[0].winfo_children()[0].winfo_children()
+             if isinstance(w, tk.Button)]
+    row_switch = next(w for w in rows1 if str(w.cget("text")).startswith("切换组"))
+    row_enable = next(w for w in rows1 if str(w.cget("text")).startswith("启用"))
+    row_enable.event_generate("<Enter>")            # 悬停「启用」→ 子面板
+    for _ in range(3):
+        root.update(); root.update_idletasks()
+    check("L 悬停「启用」弹出子面板",
+          len(ui._dropdowns) == 2 and ui._dropdowns[1] is not None
+          and ui._dropdowns[1].winfo_ismapped(), str(len(ui._dropdowns)))
+    enable_panel = ui._dropdowns[1]
+    row_switch.event_generate("<Enter>")            # 移到「切换组」
+    for _ in range(3):
+        root.update(); root.update_idletasks()
+    check("L 移到「切换组」后启用子面板已销毁",
+          not enable_panel.winfo_exists() and len(ui._dropdowns) == 2,
+          str(len(ui._dropdowns)))
+    # 移到普通条目（显示菜单的「深色模式」）时子面板也要收起
+    ui._close_dropdown()
+    ui._open_dropdown("menu.view")
+    for _ in range(2):
+        root.update(); root.update_idletasks()
+    rows_v = [w for w in ui._dropdowns[0].winfo_children()[0].winfo_children()
+              if isinstance(w, tk.Button)]
+    rows_v[0].event_generate("<Enter>")             # 「深色模式」是普通条目
+    for _ in range(3):
+        root.update(); root.update_idletasks()
+    check("L 悬停普通条目时子面板收起", len(ui._dropdowns) == 1, str(len(ui._dropdowns)))
     ui._close_dropdown()
     for _ in range(2):
         root.update(); root.update_idletasks()
     check("K 帮助窗口图标是问号（SIID_HELP=23，非 77 盾牌）", ui._help_icon_handle != 0,
           str(ui._help_icon_handle))
+
+    # 关于弹窗：{version} 占位符必须被真实版本号替换，而不是显示字面量
+    from rpe_toolbox import __version__
+    shown_info = []
+    _orig_info = _am.messagebox.showinfo
+    _am.messagebox.showinfo = lambda *a, **k: shown_info.append(a)
+    try:
+        ui.show_about()
+        for _ in range(2):
+            root.update(); root.update_idletasks()
+    finally:
+        _am.messagebox.showinfo = _orig_info
+    check("K 关于弹窗显示真实版本号（不是 {version} 字面量）",
+          bool(shown_info) and __version__ in shown_info[0][1]
+          and "{version}" not in shown_info[0][1],
+          str(shown_info[:1]))
+    for lang in ("zh-CN", "en-US"):
+        data = json.loads(io.open(os.path.join(BASE, "assets", "lang", lang + ".json"),
+                                  encoding="utf-8").read())
+        filled = data["dialogs"]["about_text"].format(version=__version__)
+        check("K %s 的关于文案填充后无残留占位符" % lang, "{version}" not in filled,
+              repr(filled[-40:]))
 
     # ==================================================================
     # F 英文功能名

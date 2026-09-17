@@ -1,0 +1,3 @@
+{
+  "text": "[What] Changes the kind of events, including X/Y scaling.\n\n[Options]\n- Locked-track hold: none / 5k(normal events) / 7k(including scaling) - how a hold is written as events.\n- Curved drag: none / X offset & scaling / Y offset & scaling - split offset & scaling into a series of drags.\n- Note interval (subdivisions): only shown when curved drag is not \"none\"; controls the density.\n\n[Usage] Paste events, pick options, Convert (choose the arrow to mirror one property into another)."
+}

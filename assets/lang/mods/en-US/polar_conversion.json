@@ -1,0 +1,3 @@
+{
+  "text": "[What] Uses the distance from the origin as r and the rotation angle as theta, then converts back to cartesian; rotation events are copied as-is. Good for circles and spirals.\n\n[Options]\n- Cut density / note interval (subdivisions): one point per subdivision, larger = smoother circle.\n\n[Usage] Paste (X,Y) events, set the density, Convert."
+}

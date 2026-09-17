@@ -1,0 +1,3 @@
+{
+  "text": "[What] Converts note time intervals plus scroll speed into yOffset (for 3D/depth effects).\n\n[Options]\n- BPM: keep it the same as the chart; used to convert time.\n- Speed: larger value = larger yOffset for the same interval.\n- Unify start time: when on, all notes start at the same time.\n\n[Usage] Paste notes, set the speed, Convert."
+}

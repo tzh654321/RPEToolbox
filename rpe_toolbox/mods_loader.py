@@ -16,6 +16,7 @@
 
 import importlib.util
 import os
+import sys
 import traceback
 
 MODS_DIRNAME = "mods"
@@ -42,8 +43,18 @@ class ModInfo(object):
 
 
 def mods_root():
-    """模组根目录 rpe_toolbox/mods。"""
-    return os.path.join(os.path.dirname(os.path.abspath(__file__)), MODS_DIRNAME)
+    """模组根目录 rpe_toolbox/mods。
+
+    打包成 exe 后模组的 .py 源文件不在 _MEIPASS 里（那里只有编译产物），
+    所以冻结时若 **exe 同级**存在 rpe_toolbox/mods 目录就优先用它 —— 加模组不用重新打包。
+    """
+    root = os.path.join(os.path.dirname(os.path.abspath(__file__)), MODS_DIRNAME)
+    if getattr(sys, "frozen", False) and not os.path.isdir(root):
+        exe_dir = os.path.dirname(os.path.abspath(sys.executable))
+        candidate = os.path.join(exe_dir, "rpe_toolbox", MODS_DIRNAME)
+        if os.path.isdir(candidate):
+            return candidate
+    return root
 
 
 def list_groups():
